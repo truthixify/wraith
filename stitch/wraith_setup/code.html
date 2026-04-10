@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WRAITH | VAULT SETUP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#4a4949",
+                    "surface-dim": "#0e0e0e",
+                    "primary-dim": "#b8b9b9",
+                    "secondary-fixed-dim": "#d2d5d3",
+                    "tertiary-fixed": "#f6f3f2",
+                    "inverse-surface": "#fcf9f8",
+                    "surface-container-lowest": "#000000",
+                    "inverse-on-surface": "#565555",
+                    "surface-container": "#191a1a",
+                    "primary-container": "#454747",
+                    "surface-container-highest": "#252626",
+                    "on-secondary-fixed-variant": "#595c5a",
+                    "on-secondary-container": "#bdc0be",
+                    "primary-fixed": "#e2e2e2",
+                    "error-container": "#7f2927",
+                    "surface-bright": "#2c2c2c",
+                    "on-primary": "#3f4041",
+                    "tertiary-fixed-dim": "#e7e5e4",
+                    "secondary-dim": "#9c9e9c",
+                    "surface-variant": "#252626",
+                    "on-primary-container": "#d0d0d0",
+                    "on-secondary-fixed": "#3d403f",
+                    "primary-fixed-dim": "#d4d4d4",
+                    "secondary-container": "#393c3b",
+                    "surface-tint": "#c6c6c7",
+                    "secondary-fixed": "#e1e3e1",
+                    "tertiary": "#fcf9f8",
+                    "outline": "#767575",
+                    "on-primary-fixed": "#3e4040",
+                    "surface-container-high": "#1f2020",
+                    "tertiary-container": "#edeaea",
+                    "inverse-primary": "#5e5f60",
+                    "error-dim": "#bb5551",
+                    "background": "#0e0e0e",
+                    "error": "#ee7d77",
+                    "on-surface": "#e7e5e4",
+                    "on-secondary": "#1d2120",
+                    "on-primary-fixed-variant": "#5a5c5c",
+                    "surface": "#0e0e0e",
+                    "outline-variant": "#484848",
+                    "on-surface-variant": "#acabaa",
+                    "on-background": "#e7e5e4",
+                    "secondary": "#9c9e9c",
+                    "primary": "#c6c6c7",
+                    "surface-container-low": "#131313",
+                    "on-error": "#490106",
+                    "on-tertiary-fixed-variant": "#676666",
+                    "tertiary-dim": "#edeaea",
+                    "on-error-container": "#ff9993",
+                    "on-tertiary-container": "#575756",
+                    "on-tertiary": "#5f5f5f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            font-size: 18px;
+        }
+        .brushed-metal {
+            background: linear-gradient(145deg, #c6c6c7 0%, #454747 100%);
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0e0e0e; }
+        ::-webkit-scrollbar-thumb { background: #454747; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 h-16 max-w-[720px] left-1/2 -translate-x-1/2 bg-[#131313]">
+<div class="text-xl font-bold tracking-widest text-[#c6c6c7] font-headline">WRAITH</div>
+<div class="hidden md:flex gap-6 items-center">
+<a class="font-headline tracking-tighter uppercase text-xs text-[#c6c6c7] border-b-0 font-bold" href="#">Setup</a>
+<a class="font-headline tracking-tighter uppercase text-xs text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150" href="#">Send</a>
+<a class="font-headline tracking-tighter uppercase text-xs text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150" href="#">Receive</a>
+<a class="font-headline tracking-tighter uppercase text-xs text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150" href="#">About</a>
+</div>
+<button class="px-4 py-2 border border-outline-variant text-[10px] uppercase tracking-widest font-headline hover:bg-surface-container-high transition-all">Connect Wallet</button>
+</nav>
+<main class="max-w-[720px] mx-auto pt-32 pb-24 px-6">
+<header class="mb-16 relative">
+<div class="absolute -top-4 right-0 flex items-center gap-2 px-2 py-1 bg-surface-bright">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-[10px] font-headline tracking-widest text-primary uppercase">Vault Status: Ready</span>
+</div>
+<h1 class="text-5xl font-headline font-bold tracking-tighter uppercase text-primary mb-2">Vault Setup</h1>
+<p class="text-on-surface-variant text-sm max-w-md">Initialize your sovereign identity. This process generates your permanent stealth meta-address for untraceable transactions.</p>
+</header>
+<section class="space-y-12">
+<div class="relative pl-8 border-l border-outline-variant">
+<div class="absolute -left-[5px] top-0 w-[9px] h-[9px] bg-primary"></div>
+<div class="flex justify-between items-start mb-6">
+<div>
+<h2 class="font-headline text-lg font-bold tracking-tight text-primary uppercase mb-1">Step 01: Key Derivation</h2>
+<p class="text-xs text-on-surface-variant uppercase tracking-wider font-headline">Cryptographic Handshake</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 space-y-4">
+<p class="text-sm leading-relaxed text-on-surface">
+                        Sign a unique message with your connected wallet to derive your viewing and spending keys. This action does not incur gas fees. Your keys never leave the local environment.
+                    </p>
+<div class="p-4 bg-surface-container-lowest border-l-2 border-primary">
+<code class="text-xs font-headline text-on-primary-container block opacity-70">
+                            WRAITH_AUTH_MESSAGE: [2024-05-21T14:44:02Z] AUTHORIZE_KEY_DERIVATION_NONCE_8FX922...
+                        </code>
+</div>
+<button class="w-full brushed-metal py-4 text-on-primary font-headline font-bold uppercase tracking-[0.2em] text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2 group">
+                        Sign to Derive Keys
+                        <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="relative pl-8 border-l border-outline-variant opacity-40">
+<div class="absolute -left-[5px] top-0 w-[9px] h-[9px] bg-outline"></div>
+<div class="flex justify-between items-start mb-6">
+<div>
+<h2 class="font-headline text-lg font-bold tracking-tight text-on-surface uppercase mb-1">Step 02: Stealth Identity</h2>
+<p class="text-xs text-on-surface-variant uppercase tracking-wider font-headline">Sovereign Address Generation</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-6">
+<div class="mb-6">
+<label class="text-[10px] font-headline uppercase tracking-widest text-on-surface-variant mb-3 block">Public Meta-Address</label>
+<div class="bg-surface-container-lowest p-6 relative group">
+<div class="text-[11px] font-headline leading-tight break-all text-primary opacity-90 tracking-tighter">
+                                STX-V1-99AD2BE09A2234FC9911B008C23FFAD09911B008C23F-FAD02234FC9911B008C23FFAD09911B008C23F-B008C23FFAD09911B008C23FFAD09911B008C23F-FAD02234FC9911B008C23FFAD09911B008C23F
+                            </div>
+<button class="absolute top-2 right-2 p-2 hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-primary">content_copy</span>
+</button>
+</div>
+<p class="mt-4 text-[11px] text-on-surface-variant italic">
+                            * This is your public identity. Share this to receive private payments.
+                        </p>
+</div>
+<div class="pt-6 border-t border-outline-variant/10">
+<button class="w-full py-4 border border-outline-variant text-primary font-headline font-bold uppercase tracking-[0.2em] text-sm hover:bg-surface-container-high transition-all">
+                            Register on-chain
+                        </button>
+<p class="mt-4 text-[10px] text-center text-on-surface-variant uppercase tracking-widest">
+                            Requires ~0.002 ETH in gas
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<aside class="mt-20 grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-6 bg-surface-container">
+<span class="material-symbols-outlined text-primary mb-4">security</span>
+<h4 class="font-headline text-xs font-bold uppercase tracking-widest text-on-surface mb-2">Zero-Knowledge Proofs</h4>
+<p class="text-[11px] text-on-surface-variant leading-relaxed">Transactions are verified using zk-SNARKs, ensuring neither the sender nor recipient is exposed to the public ledger.</p>
+</div>
+<div class="p-6 bg-surface-container">
+<span class="material-symbols-outlined text-primary mb-4">visibility_off</span>
+<h4 class="font-headline text-xs font-bold uppercase tracking-widest text-on-surface mb-2">Stealth Mechanism</h4>
+<p class="text-[11px] text-on-surface-variant leading-relaxed">Each transaction generates a unique one-time address, making it impossible to link incoming funds to your meta-address.</p>
+</div>
+</aside>
+</main>
+<footer class="w-full max-w-[720px] mx-auto py-8 flex flex-col items-center gap-4 mt-auto">
+<div class="text-xs font-bold text-[#c6c6c7] font-headline tracking-widest">WRAITH SOVEREIGN</div>
+<div class="flex gap-8 text-[#454747] font-['Inter'] text-[10px] uppercase tracking-[0.2em]">
+<a class="hover:text-[#c6c6c7] transition-colors duration-150" href="#">Privacy</a>
+<a class="hover:text-[#c6c6c7] transition-colors duration-150" href="#">Security</a>
+<a class="hover:text-[#c6c6c7] transition-colors duration-150" href="#">Terminal</a>
+</div>
+<div class="text-[#454747] font-['Inter'] text-[10px] uppercase tracking-[0.2em]">© 2024 WRAITH SOVEREIGN. ALL RIGHTS RESERVED.</div>
+</footer>
+</body></html>

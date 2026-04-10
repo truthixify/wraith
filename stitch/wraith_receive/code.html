@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#4a4949",
+                    "surface-dim": "#0e0e0e",
+                    "primary-dim": "#b8b9b9",
+                    "secondary-fixed-dim": "#d2d5d3",
+                    "tertiary-fixed": "#f6f3f2",
+                    "inverse-surface": "#fcf9f8",
+                    "surface-container-lowest": "#000000",
+                    "inverse-on-surface": "#565555",
+                    "surface-container": "#191a1a",
+                    "primary-container": "#454747",
+                    "surface-container-highest": "#252626",
+                    "on-secondary-fixed-variant": "#595c5a",
+                    "on-secondary-container": "#bdc0be",
+                    "primary-fixed": "#e2e2e2",
+                    "error-container": "#7f2927",
+                    "surface-bright": "#2c2c2c",
+                    "on-primary": "#3f4041",
+                    "tertiary-fixed-dim": "#e7e5e4",
+                    "secondary-dim": "#9c9e9c",
+                    "surface-variant": "#252626",
+                    "on-primary-container": "#d0d0d0",
+                    "on-secondary-fixed": "#3d403f",
+                    "primary-fixed-dim": "#d4d4d4",
+                    "secondary-container": "#393c3b",
+                    "surface-tint": "#c6c6c7",
+                    "secondary-fixed": "#e1e3e1",
+                    "tertiary": "#fcf9f8",
+                    "outline": "#767575",
+                    "on-primary-fixed": "#3e4040",
+                    "surface-container-high": "#1f2020",
+                    "tertiary-container": "#edeaea",
+                    "inverse-primary": "#5e5f60",
+                    "error-dim": "#bb5551",
+                    "background": "#0e0e0e",
+                    "error": "#ee7d77",
+                    "on-surface": "#e7e5e4",
+                    "on-secondary": "#1d2120",
+                    "on-primary-fixed-variant": "#5a5c5c",
+                    "surface": "#0e0e0e",
+                    "outline-variant": "#484848",
+                    "on-surface-variant": "#acabaa",
+                    "on-background": "#e7e5e4",
+                    "secondary": "#9c9e9c",
+                    "primary": "#c6c6c7",
+                    "surface-container-low": "#131313",
+                    "on-error": "#490106",
+                    "on-tertiary-fixed-variant": "#676666",
+                    "tertiary-dim": "#edeaea",
+                    "on-error-container": "#ff9993",
+                    "on-tertiary-container": "#575756",
+                    "on-tertiary": "#5f5f5f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .brushed-metal {
+            background: linear-gradient(145deg, #c6c6c7 0%, #454747 100%);
+        }
+        .recessed-well {
+            background-color: #000000;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .vault-status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #c6c6c7;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-white">
+<!-- TopNavBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 h-16 max-w-[720px] mx-auto bg-[#0e0e0e] right-0">
+<div class="text-xl font-bold tracking-widest text-[#c6c6c7] font-headline">WRAITH</div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150 font-headline tracking-tighter uppercase text-xs" href="#">Setup</a>
+<a class="text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150 font-headline tracking-tighter uppercase text-xs" href="#">Send</a>
+<a class="text-[#c6c6c7] border-b-0 font-bold font-headline tracking-tighter uppercase text-xs" href="#">Receive</a>
+<a class="text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150 font-headline tracking-tighter uppercase text-xs" href="#">About</a>
+</div>
+<button class="brushed-metal px-4 py-2 text-on-primary font-headline font-bold text-[10px] tracking-widest uppercase">Connect Wallet</button>
+</nav>
+<!-- Main Content Canvas -->
+<main class="max-w-[720px] mx-auto pt-32 pb-24 px-6 min-h-screen flex flex-col">
+<!-- Vault Status Chip (Fixed to top right of container) -->
+<div class="flex justify-end mb-12">
+<div class="bg-surface-bright px-3 py-1.5 flex items-center gap-3 border border-outline-variant/10">
+<span class="vault-status-dot"></span>
+<span class="font-headline text-[10px] uppercase tracking-widest text-primary">Status: Scanning Nodes</span>
+</div>
+</div>
+<!-- Hero Section: Scanner Action -->
+<header class="mb-20 text-center">
+<h1 class="font-headline text-5xl font-bold tracking-tighter uppercase mb-4 text-primary">Inbound Assets</h1>
+<p class="text-on-surface-variant text-sm max-w-sm mx-auto leading-relaxed">
+                Execute a deep-scan of the global ledger to identify stealth addresses associated with your cryptographic keypair.
+            </p>
+</header>
+<!-- Primary Action Zone -->
+<div class="flex flex-col items-center mb-24">
+<button class="group relative brushed-metal px-12 py-6 text-on-primary font-headline font-bold text-lg tracking-widest uppercase transition-all duration-150 hover:bg-primary-fixed">
+<span class="relative z-10 flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="radar">radar</span>
+                    Scan Blockchain
+                </span>
+</button>
+<div class="mt-6 font-headline text-[10px] text-outline tracking-[0.3em] uppercase">Last scan: 14.02.24 09:12:01</div>
+</div>
+<!-- Results Section -->
+<section class="flex flex-col gap-8">
+<div class="flex justify-between items-end border-b border-outline-variant/10 pb-4">
+<h2 class="font-headline text-xs tracking-widest uppercase text-outline">Detected Transfers (03)</h2>
+<div class="font-headline text-xs text-primary font-bold">4.8291 ETH TOTAL</div>
+</div>
+<!-- Result Item 1 -->
+<div class="bg-surface-container-low p-6 flex flex-col gap-6">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-outline uppercase tracking-widest font-headline">Stealth Address</span>
+<span class="font-headline text-sm tracking-tight text-primary-dim truncate max-w-[280px]">0x71C7656EC7ab88b098defB751B7401B5f6d8976F</span>
+</div>
+<div class="text-right">
+<span class="text-[10px] text-outline uppercase tracking-widest font-headline block mb-1">Balance</span>
+<span class="font-headline text-lg font-bold text-on-surface">2.4000 ETH</span>
+</div>
+</div>
+<!-- Reveal Action Component -->
+<div class="bg-surface-container-lowest p-4 border border-outline-variant/10">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline text-sm" data-icon="lock">lock</span>
+<span class="text-[10px] font-headline uppercase tracking-widest text-outline">Private Key Fragment Hidden</span>
+</div>
+<button class="text-[10px] font-headline uppercase tracking-widest text-primary hover:text-primary-fixed underline transition-colors">Reveal Key</button>
+</div>
+</div>
+</div>
+<!-- Result Item 2 (Revealed State) -->
+<div class="bg-surface-container-low p-6 flex flex-col gap-6">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-outline uppercase tracking-widest font-headline">Stealth Address</span>
+<span class="font-headline text-sm tracking-tight text-primary-dim truncate max-w-[280px]">0x3F92822A91D0E45F2C89A214D8D23456F8E7C6A1</span>
+</div>
+<div class="text-right">
+<span class="text-[10px] text-outline uppercase tracking-widest font-headline block mb-1">Balance</span>
+<span class="font-headline text-lg font-bold text-on-surface">1.1291 ETH</span>
+</div>
+</div>
+<!-- Revealed State Treatment -->
+<div class="bg-error-container/5 p-4 border border-error-dim/20 relative overflow-hidden">
+<div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(#bb5551 0.5px, transparent 0.5px); background-size: 10px 10px;"></div>
+<div class="flex flex-col gap-2 relative z-10">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error-dim text-xs" data-icon="warning">warning</span>
+<span class="text-[9px] font-headline uppercase tracking-[0.2em] text-error-dim font-bold">Sensitive Information: Stealth Key</span>
+</div>
+<button class="material-symbols-outlined text-outline hover:text-on-surface text-sm" data-icon="content_copy">content_copy</button>
+</div>
+<code class="font-headline text-[11px] break-all text-on-surface leading-tight tracking-normal">
+                            k_9a2f4c1d8e5b6a7f0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7
+                        </code>
+</div>
+</div>
+</div>
+<!-- Result Item 3 -->
+<div class="bg-surface-container-low p-6 flex flex-col gap-6">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-outline uppercase tracking-widest font-headline">Stealth Address</span>
+<span class="font-headline text-sm tracking-tight text-primary-dim truncate max-w-[280px]">0xAA12BB34CC56DD78EE90FF1234567890ABCDEF12</span>
+</div>
+<div class="text-right">
+<span class="text-[10px] text-outline uppercase tracking-widest font-headline block mb-1">Balance</span>
+<span class="font-headline text-lg font-bold text-on-surface">1.3000 ETH</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 border border-outline-variant/10">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline text-sm" data-icon="lock">lock</span>
+<span class="text-[10px] font-headline uppercase tracking-widest text-outline">Private Key Fragment Hidden</span>
+</div>
+<button class="text-[10px] font-headline uppercase tracking-widest text-primary hover:text-primary-fixed underline transition-colors">Reveal Key</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Empty State (Placeholder logic) - Set to hidden normally -->
+<section class="hidden flex-col items-center justify-center py-32 text-center opacity-50">
+<span class="material-symbols-outlined text-6xl mb-6 text-outline" data-icon="package_2">package_2</span>
+<h3 class="font-headline text-xl font-bold tracking-tighter uppercase mb-2">No Vaulted Assets Found</h3>
+<p class="text-sm max-w-xs leading-relaxed">Ensure your Master Public Key is correctly configured in Setup before scanning.</p>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full max-w-[720px] mx-auto py-8 flex flex-col items-center gap-4 mt-auto">
+<div class="flex gap-6">
+<a class="text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150 font-body text-[10px] uppercase tracking-[0.2em]" href="#">Privacy</a>
+<a class="text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150 font-body text-[10px] uppercase tracking-[0.2em]" href="#">Security</a>
+<a class="text-[#454747] hover:text-[#c6c6c7] transition-colors duration-150 font-body text-[10px] uppercase tracking-[0.2em]" href="#">Terminal</a>
+</div>
+<div class="text-xs font-bold text-[#c6c6c7] font-headline tracking-widest">WRAITH SOVEREIGN</div>
+<p class="text-[#454747] font-body text-[10px] uppercase tracking-[0.2em]">© 2024 WRAITH SOVEREIGN. ALL RIGHTS RESERVED.</p>
+</footer>
+</body></html>
