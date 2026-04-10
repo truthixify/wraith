@@ -13,7 +13,7 @@ export function App() {
     <div className="flex flex-col min-h-screen">
       <Nav />
       <AutoSign />
-      <main className="max-w-[720px] mx-auto w-full pt-32 pb-24 px-6 flex-1 flex flex-col">
+      <main className="max-w-[720px] mx-auto w-full pt-36 pb-24 px-6 flex-1 flex flex-col">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/setup" element={<Setup />} />

@@ -28,14 +28,11 @@ export function Nav() {
 
   return (
     <>
-      <nav className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[720px] z-50 flex justify-between items-center px-6 h-16 bg-surface-container-low">
-        <Link
-          to="/"
-          className="text-xl font-bold tracking-widest text-primary font-headline uppercase"
-        >
-          WRAITH
+      <nav className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[720px] z-50 flex justify-between items-center px-6 h-20 bg-surface-container-low">
+        <Link to="/" className="hover:opacity-80 transition-opacity">
+          <img src="/logo.png" alt="Wraith" className="h-9 w-auto" />
         </Link>
-        <div className="hidden md:flex gap-6 items-center">
+        <div className="hidden md:flex gap-8 items-center">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -62,7 +59,7 @@ export function Nav() {
       </nav>
 
       {menuOpen && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 w-full max-w-[720px] z-40 bg-surface-container-low flex flex-col py-4 px-6 gap-4 md:hidden">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 w-full max-w-[720px] z-40 bg-surface-container-low flex flex-col py-4 px-6 gap-4 md:hidden">
           {links.map((link) => (
             <Link
               key={link.href}
