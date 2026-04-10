@@ -17,7 +17,7 @@ export function Footer() {
           Security
         </Link>
         <a
-          href="https://github.com"
+          href="https://github.com/truthixify/wraith"
           target="_blank"
           rel="noopener noreferrer"
           className="font-body text-[10px] uppercase tracking-[0.2em] text-primary-container hover:text-primary transition-colors duration-150"

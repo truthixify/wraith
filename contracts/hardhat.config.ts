@@ -37,6 +37,24 @@ const config: HardhatUserConfig = {
       default: 0,
     },
   },
+  etherscan: {
+    apiKey: {
+      horizenTestnet: "no-api-key-needed",
+    },
+    customChains: [
+      {
+        network: "horizenTestnet",
+        chainId: 2651420,
+        urls: {
+          apiURL: "https://horizen-testnet.explorer.caldera.xyz/api",
+          browserURL: "https://horizen-testnet.explorer.caldera.xyz",
+        },
+      },
+    ],
+  },
+  sourcify: {
+    enabled: false,
+  },
   paths: {
     sources: "./contracts",
     tests: "./test",

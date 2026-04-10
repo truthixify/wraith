@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { REGISTRY_ABI, REGISTRY_ADDRESSES } from "@/config/contracts";
 import { SUBGRAPH_URLS } from "@/config/subgraph";
@@ -12,14 +12,25 @@ export function useRegisterKeys(chainId: number) {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const { toast } = useToast();
+  const toastedError = useRef<string | null>(null);
+  const toastedSuccess = useRef<string | null>(null);
 
   useEffect(() => {
-    if (error) toast(parseError(error), "error");
+    if (error) {
+      const msg = parseError(error);
+      if (toastedError.current !== msg) {
+        toastedError.current = msg;
+        toast(msg, "error");
+      }
+    }
   }, [error, toast]);
 
   useEffect(() => {
-    if (isSuccess) toast("Meta-address registered on-chain", "success");
-  }, [isSuccess, toast]);
+    if (isSuccess && hash && toastedSuccess.current !== hash) {
+      toastedSuccess.current = hash;
+      toast("Meta-address registered on-chain", "success");
+    }
+  }, [isSuccess, hash, toast]);
 
   const registerKeys = (stealthMetaAddress: HexString) => {
     if (!address) {

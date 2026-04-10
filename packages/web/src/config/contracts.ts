@@ -66,6 +66,90 @@ export const REGISTRY_ADDRESSES: Record<number, `0x${string}`> = {
   31337: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 };
 
+export const WRAITH_SENDER_ABI = [
+  {
+    type: "function",
+    name: "sendETH",
+    inputs: [
+      { name: "schemeId", type: "uint256" },
+      { name: "stealthAddress", type: "address" },
+      { name: "ephemeralPubKey", type: "bytes" },
+      { name: "metadata", type: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "sendERC20",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "schemeId", type: "uint256" },
+      { name: "stealthAddress", type: "address" },
+      { name: "ephemeralPubKey", type: "bytes" },
+      { name: "metadata", type: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "batchSendETH",
+    inputs: [
+      { name: "schemeId", type: "uint256" },
+      { name: "stealthAddresses", type: "address[]" },
+      { name: "ephemeralPubKeys", type: "bytes[]" },
+      { name: "metadatas", type: "bytes[]" },
+      { name: "amounts", type: "uint256[]" },
+    ],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    name: "batchSendERC20",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "schemeId", type: "uint256" },
+      { name: "stealthAddresses", type: "address[]" },
+      { name: "ephemeralPubKeys", type: "bytes[]" },
+      { name: "metadatas", type: "bytes[]" },
+      { name: "amounts", type: "uint256[]" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+export const WRAITH_SENDER_ADDRESSES: Record<number, `0x${string}`> = {
+  2651420: "0xb01a0A37E3f4Cc95ff7b26B28c9DA5F73f7A3e61",
+};
+
+export const WRAITH_WITHDRAWER_ABI = [
+  {
+    type: "function",
+    name: "withdrawETHDirect",
+    inputs: [{ name: "destination", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "withdrawERC20Direct",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "destination", type: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+export const WRAITH_WITHDRAWER_ADDRESSES: Record<number, `0x${string}`> = {
+  2651420: "0x9F7f1C9d8B5a83245c6fC8415Ef744C458101711",
+};
+
 // Block number at which contracts were deployed — scan logs from here, not from 0
 export const DEPLOYMENT_BLOCKS: Record<number, bigint> = {
   2651420: 14202900n,

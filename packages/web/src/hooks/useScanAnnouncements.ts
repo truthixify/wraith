@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { scanAnnouncements, SCHEME_ID } from "@wraith/sdk";
 import type { HexString, Announcement, MatchedAnnouncement } from "@wraith/sdk";
 import { SUBGRAPH_URLS } from "@/config/subgraph";
@@ -60,21 +60,29 @@ async function fetchAllAnnouncements(url: string): Promise<Announcement[]> {
 
 export function useScanAnnouncements(chainId: number) {
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
   const [matched, setMatched] = useState<MatchedAnnouncement[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const scanLock = useRef(false);
 
   const scan = useCallback(
     async (
       viewingKey: HexString,
       spendingPubKey: HexString,
-      spendingKey: HexString
+      spendingKey: HexString,
+      silent = false
     ) => {
+      if (scanLock.current) return;
+
       const subgraphUrl = SUBGRAPH_URLS[chainId];
       if (!subgraphUrl) {
-        toast("Subgraph not available for this network", "error");
+        if (!silent) toastRef.current("Subgraph not available for this network", "error");
         return;
       }
 
+      scanLock.current = true;
       setIsScanning(true);
 
       try {
@@ -89,24 +97,27 @@ export function useScanAnnouncements(chainId: number) {
 
         setMatched(results);
 
-        if (results.length > 0) {
-          toast(
-            `Found ${results.length} stealth transfer${results.length > 1 ? "s" : ""}`,
-            "success"
-          );
-        } else {
-          toast(
-            `Scanned ${announcements.length} announcement${announcements.length !== 1 ? "s" : ""} — none matched`,
-            "info"
-          );
+        if (!silent) {
+          if (results.length > 0) {
+            toastRef.current(
+              `Found ${results.length} stealth transfer${results.length > 1 ? "s" : ""}`,
+              "success"
+            );
+          } else {
+            toastRef.current(
+              `Scanned ${announcements.length} announcement${announcements.length !== 1 ? "s" : ""} — none matched`,
+              "info"
+            );
+          }
         }
       } catch (err) {
-        toast(parseError(err), "error");
+        if (!silent) toastRef.current(parseError(err), "error");
       } finally {
         setIsScanning(false);
+        scanLock.current = false;
       }
     },
-    [chainId, toast]
+    [chainId]
   );
 
   return { scan, matched, isScanning };

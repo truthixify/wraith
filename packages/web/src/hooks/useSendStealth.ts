@@ -1,32 +1,22 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   useWriteContract,
-  useSendTransaction,
   useWaitForTransactionReceipt,
+  useAccount,
 } from "wagmi";
-import { parseEther, parseUnits, encodeFunctionData } from "viem";
+import { parseEther, parseUnits, erc20Abi } from "viem";
 import {
   generateStealthAddress,
   decodeStealthMetaAddress,
   SCHEME_ID,
 } from "@wraith/sdk";
 import type { HexString } from "@wraith/sdk";
-import { ANNOUNCER_ABI, ANNOUNCER_ADDRESSES } from "@/config/contracts";
+import {
+  WRAITH_SENDER_ABI,
+  WRAITH_SENDER_ADDRESSES,
+} from "@/config/contracts";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";
-
-const ERC20_TRANSFER_ABI = [
-  {
-    type: "function",
-    name: "transfer",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "nonpayable",
-  },
-] as const;
 
 export interface TokenOption {
   symbol: string;
@@ -52,54 +42,102 @@ export const TOKEN_LIST: Record<number, TokenOption[]> = {
 
 export function useSendStealth(chainId: number) {
   const { toast } = useToast();
+
   const [stealthResult, setStealthResult] = useState<{
     stealthAddress: HexString;
     ephemeralPubKey: HexString;
     viewTag: number;
   } | null>(null);
+  const [needsApproval, setNeedsApproval] = useState(false);
+  const [pendingToken, setPendingToken] = useState<TokenOption | null>(null);
+  const [pendingAmount, setPendingAmount] = useState<bigint>(0n);
+
+  const toastedApprovalError = useRef<string | null>(null);
+  const toastedSendError = useRef<string | null>(null);
+  const toastedSuccess = useRef<string | null>(null);
 
   const {
-    sendTransaction,
-    data: transferHash,
-    isPending: isTransferPending,
-    error: transferError,
-    reset: resetTransfer,
-  } = useSendTransaction();
-  const { isLoading: isTransferConfirming, isSuccess: isTransferSuccess } =
-    useWaitForTransactionReceipt({ hash: transferHash });
+    writeContract: writeApproval,
+    data: approvalHash,
+    isPending: isApprovalPending,
+    error: approvalError,
+    reset: resetApproval,
+  } = useWriteContract();
+  const { isSuccess: isApprovalSuccess } =
+    useWaitForTransactionReceipt({ hash: approvalHash });
 
   const {
     writeContract,
-    data: announceHash,
-    isPending: isAnnouncePending,
-    error: announceError,
-    reset: resetAnnounce,
+    data: sendHash,
+    isPending: isSendPending,
+    error: sendError,
+    reset: resetSend,
   } = useWriteContract();
-  const { isLoading: isAnnounceConfirming, isSuccess: isAnnounceSuccess } =
-    useWaitForTransactionReceipt({ hash: announceHash });
+  const { isLoading: isSendConfirming, isSuccess: isSendSuccess } =
+    useWaitForTransactionReceipt({ hash: sendHash });
+
+  // Toast errors and success exactly once per unique occurrence
+  useEffect(() => {
+    if (approvalError) {
+      const msg = parseError(approvalError);
+      if (toastedApprovalError.current !== msg) {
+        toastedApprovalError.current = msg;
+        toast(msg, "error");
+      }
+    }
+  }, [approvalError, toast]);
 
   useEffect(() => {
-    if (transferError) toast(parseError(transferError), "error");
-  }, [transferError, toast]);
+    if (sendError) {
+      const msg = parseError(sendError);
+      if (toastedSendError.current !== msg) {
+        toastedSendError.current = msg;
+        toast(msg, "error");
+      }
+    }
+  }, [sendError, toast]);
 
   useEffect(() => {
-    if (isTransferSuccess) toast("Transfer confirmed", "success");
-  }, [isTransferSuccess, toast]);
+    if (isSendSuccess && sendHash && toastedSuccess.current !== sendHash) {
+      toastedSuccess.current = sendHash;
+      toast("Transfer and announcement confirmed", "success");
+    }
+  }, [isSendSuccess, sendHash, toast]);
 
+  // After approval succeeds, fire the actual send
   useEffect(() => {
-    if (announceError) toast(parseError(announceError), "error");
-  }, [announceError, toast]);
+    if (!isApprovalSuccess || !needsApproval || !stealthResult || !pendingToken) return;
+    setNeedsApproval(false);
 
-  useEffect(() => {
-    if (isAnnounceSuccess)
-      toast(
-        "Announcement published — recipient can now find this transfer",
-        "success"
-      );
-  }, [isAnnounceSuccess, toast]);
+    const senderAddress = WRAITH_SENDER_ADDRESSES[chainId];
+    if (!senderAddress) return;
+
+    const viewTagHex = stealthResult.viewTag.toString(16).padStart(2, "0");
+    const metadata = `0x${viewTagHex}` as HexString;
+
+    writeContract({
+      address: senderAddress,
+      abi: WRAITH_SENDER_ABI,
+      functionName: "sendERC20",
+      args: [
+        pendingToken.address as `0x${string}`,
+        pendingAmount,
+        SCHEME_ID,
+        stealthResult.stealthAddress as `0x${string}`,
+        stealthResult.ephemeralPubKey as `0x${string}`,
+        metadata as `0x${string}`,
+      ],
+    });
+  }, [isApprovalSuccess, needsApproval, stealthResult, pendingToken, pendingAmount, chainId, writeContract]);
 
   const generateAndSend = useCallback(
     (metaAddress: string, amount: string, token: TokenOption) => {
+      const senderAddress = WRAITH_SENDER_ADDRESSES[chainId];
+      if (!senderAddress) {
+        toast("Sender contract not deployed on this network", "error");
+        return;
+      }
+
       try {
         const decoded = decodeStealthMetaAddress(metaAddress);
         const result = generateStealthAddress(
@@ -108,23 +146,33 @@ export function useSendStealth(chainId: number) {
         );
         setStealthResult(result);
 
+        const viewTagHex = result.viewTag.toString(16).padStart(2, "0");
+        const metadata = `0x${viewTagHex}` as HexString;
+
         if (token.address === "native") {
-          sendTransaction({
-            to: result.stealthAddress,
+          writeContract({
+            address: senderAddress,
+            abi: WRAITH_SENDER_ABI,
+            functionName: "sendETH",
+            args: [
+              SCHEME_ID,
+              result.stealthAddress as `0x${string}`,
+              result.ephemeralPubKey as `0x${string}`,
+              metadata as `0x${string}`,
+            ],
             value: parseEther(amount),
           });
         } else {
-          // ERC-20 transfer
-          sendTransaction({
-            to: token.address,
-            data: encodeFunctionData({
-              abi: ERC20_TRANSFER_ABI,
-              functionName: "transfer",
-              args: [
-                result.stealthAddress as `0x${string}`,
-                parseUnits(amount, token.decimals),
-              ],
-            }),
+          const parsedAmount = parseUnits(amount, token.decimals);
+          setPendingToken(token);
+          setPendingAmount(parsedAmount);
+          setNeedsApproval(true);
+
+          writeApproval({
+            address: token.address as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [senderAddress, parsedAmount],
           });
         }
 
@@ -133,52 +181,30 @@ export function useSendStealth(chainId: number) {
         toast(parseError(err), "error");
       }
     },
-    [sendTransaction, toast]
+    [chainId, writeContract, writeApproval, toast]
   );
-
-  const announce = useCallback(() => {
-    if (!stealthResult) return;
-
-    const announcerAddress = ANNOUNCER_ADDRESSES[chainId];
-    if (!announcerAddress) {
-      toast("Announcer contract not deployed on this network", "error");
-      return;
-    }
-
-    const viewTagHex = stealthResult.viewTag.toString(16).padStart(2, "0");
-    const metadata = `0x${viewTagHex}` as HexString;
-
-    writeContract({
-      address: announcerAddress,
-      abi: ANNOUNCER_ABI,
-      functionName: "announce",
-      args: [
-        SCHEME_ID,
-        stealthResult.stealthAddress,
-        stealthResult.ephemeralPubKey,
-        metadata,
-      ],
-    });
-  }, [stealthResult, chainId, writeContract, toast]);
 
   const reset = useCallback(() => {
     setStealthResult(null);
-    resetTransfer();
-    resetAnnounce();
-  }, [resetTransfer, resetAnnounce]);
+    setNeedsApproval(false);
+    setPendingToken(null);
+    setPendingAmount(0n);
+    toastedApprovalError.current = null;
+    toastedSendError.current = null;
+    toastedSuccess.current = null;
+    resetApproval();
+    resetSend();
+  }, [resetApproval, resetSend]);
+
+  const isPending = isSendPending || isApprovalPending;
 
   return {
     generateAndSend,
-    announce,
     reset,
     stealthResult,
-    isTransferPending,
-    isTransferConfirming,
-    isTransferSuccess,
-    isAnnouncePending,
-    isAnnounceConfirming,
-    isAnnounceSuccess,
-    transferHash,
-    announceHash,
+    isPending,
+    isSendConfirming,
+    isSendSuccess,
+    sendHash,
   };
 }
