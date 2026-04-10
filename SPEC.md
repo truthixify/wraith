@@ -142,32 +142,22 @@ Wraith is a monorepo using pnpm workspaces with three parts: the SDK package, th
 
 ## Roadmap
 
-**Atomic send-and-announce**
-A helper contract that executes the asset transfer and the announcement in a single atomic transaction. Prevents the failure case where funds land at a stealth address but the announcement is never published — which would make those funds invisible to the recipient forever.
-
-**Token detection on stealth addresses**
-The receive page currently shows only ETH balances. Full token detection would scan each stealth address for ERC-20 holdings so the user sees exactly what they're withdrawing. Can be powered by the subgraph or a multicall against known token contracts.
-
-**Gas-sponsored withdrawals via EIP-7702**
-A fresh stealth address has no gas. Wraith v1 encourages senders to include a small amount of the native gas token alongside every asset transfer to cover the recipient's first transaction. Horizen supports EIP-7702, which lets a plain EOA temporarily delegate to smart contract logic within a single transaction. This means a stealth address — which is a regular EOA — can have its withdrawal gas sponsored without converting it into a smart contract wallet. A sponsor contract pays gas on behalf of the stealth address and deducts the cost from the transferred amount, all atomically. This works for both native tokens and ERC-20s, unlike a traditional relayer which can only handle ERC-20s.
-
-**Multi-recipient airdrop**
-A contract that takes a list of stealth meta-addresses and amounts, generates a unique stealth address for each recipient on-chain, executes all transfers, and emits all announcements in a single transaction. Useful for payroll, grants, or airdrops where privacy matters for every recipient.
-
-**Payment links**
-A user generates a URL like `wraith.app/pay/truth.wraith` that opens the send page pre-filled with the recipient. Shareable on social media, invoices, or anywhere a payment request needs to be communicated without exposing a wallet address.
-
-**Wraith name search**
-A public lookup page where anyone can search a Wraith name and retrieve the meta-address to send to, without the recipient needing to be online. A phone book for private payments.
-
-**Paymaster**
-An ERC-4337 paymaster as an alternative to the EIP-7702 approach, for broader compatibility with smart contract wallets and wallet SDKs that already support the 4337 flow.
-
-**FHE-DKSAP**
-The FHE-based Dual Key Stealth Address Protocol replaces the standard elliptic curve key agreement with Fully Homomorphic Encryption. This makes the stealth address system quantum-resistant and enables trustless outsourced scanning — a scanning service can find your incoming transfers without you ever sharing your viewing key. Under the current scheme, outsourcing scanning requires handing over the viewing private key to a third party. FHE-DKSAP eliminates this trust requirement entirely: the scanning service operates on encrypted data and learns nothing about which announcements match. This is the long-term evolution of Wraith's privacy model.
-
-**Mobile**
-A mobile-optimised experience for scanning and spending from a phone without requiring a desktop browser.
+- [x] **Atomic send-and-announce** — WraithSender contract executes transfer + announcement in a single atomic transaction.
+- [x] **Token detection on stealth addresses** — Receive page scans ETH + ERC-20 balances (ZEN, USDC) on each stealth address. Dust balances are hidden by default with a toggle to reveal.
+- [x] **Gas-sponsored withdrawals via EIP-7702** — WraithWithdrawer contract deployed as EIP-7702 delegation target. Horizen supports EIP-7702, enabling gas sponsorship on plain EOA stealth addresses for both native tokens and ERC-20s.
+- [x] **Batch send** — WraithSender supports batchSendETH and batchSendERC20 for sending to multiple stealth addresses in one transaction. UI has a Single/Batch toggle.
+- [x] **Batch withdraw** — Receive page supports selecting multiple stealth addresses and withdrawing all to one destination sequentially.
+- [x] **One-click withdrawal** — Derive stealth private key in memory, sign withdrawal, discard key. No key ever stored or displayed unless explicitly revealed.
+- [x] **Subgraph indexing via Goldsky** — Announcements indexed in real time via Goldsky subgraph. Scanning queries GraphQL instead of raw RPC logs.
+- [ ] **Human-readable names** — WraithNames contract for on-chain name-to-wallet mapping. Two-hop lookup: name → wallet → meta-address.
+- [ ] **Payment links** — Shareable URLs like `wraith.app/pay/truth.wraith` that open the send page pre-filled with the recipient.
+- [ ] **Wraith name search** — Public lookup page for searching Wraith names and retrieving meta-addresses.
+- [ ] **UX privacy protections** — Connected wallet blocking, fresh destination enforcement, timing suggestions, balance batching warnings, plain language warnings at every step.
+- [ ] **Multi-recipient airdrop contract** — On-chain batch that takes meta-addresses + amounts, generates stealth addresses, transfers, and announces all in one transaction.
+- [ ] **Paymaster** — ERC-4337 paymaster as an alternative to EIP-7702, for smart contract wallet compatibility.
+- [ ] **ZK spending trail** — ZK shielded pool for withdrawals that breaks the on-chain link between stealth address and spending destination.
+- [ ] **FHE-DKSAP** — FHE-based Dual Key Stealth Address Protocol for quantum-resistant stealth addresses and trustless outsourced scanning without sharing the viewing key.
+- [ ] **Mobile** — Mobile-optimised experience for scanning and spending.
 
 ---
 
