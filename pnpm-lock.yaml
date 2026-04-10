@@ -68,7 +68,7 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.64.0
         version: 5.97.0(react@19.2.5)
-      '@wraith/sdk':
+      '@wraith-horizen/sdk':
         specifier: workspace:*
         version: link:../sdk
       react:

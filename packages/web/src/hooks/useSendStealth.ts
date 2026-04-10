@@ -9,8 +9,8 @@ import {
   generateStealthAddress,
   decodeStealthMetaAddress,
   SCHEME_ID,
-} from "@wraith/sdk";
-import type { HexString } from "@wraith/sdk";
+} from "@wraith-horizen/sdk";
+import type { HexString } from "@wraith-horizen/sdk";
 import {
   WRAITH_SENDER_ABI,
   WRAITH_SENDER_ADDRESSES,

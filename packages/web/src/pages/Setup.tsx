@@ -7,7 +7,7 @@ import { VaultStatus } from "@/components/vault-status";
 import { WalletButton } from "@/components/connect-button";
 import { REGISTRY_ADDRESSES } from "@/config/contracts";
 import { txUrl } from "@/lib/explorer";
-import type { HexString } from "@wraith/sdk";
+import type { HexString } from "@wraith-horizen/sdk";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);

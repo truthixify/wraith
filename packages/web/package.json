@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm --filter @wraith/sdk run build && tsc --noEmit && vite build",
+    "build": "pnpm --filter @wraith-horizen/sdk run build && tsc --noEmit && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.0",
     "@tanstack/react-query": "^5.64.0",
-    "@wraith/sdk": "workspace:*",
+    "@wraith-horizen/sdk": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.6.0",

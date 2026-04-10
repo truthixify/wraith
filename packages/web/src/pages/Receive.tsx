@@ -16,7 +16,7 @@ import { useStealthKeysContext } from "@/context/stealth-keys";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";
 import { VaultStatus } from "@/components/vault-status";
-import type { HexString } from "@wraith/sdk";
+import type { HexString } from "@wraith-horizen/sdk";
 import { addressUrl, txUrl } from "@/lib/explorer";
 import { horizenTestnet, horizenMainnet } from "@/config/chains";
 

@@ -12,8 +12,8 @@ import {
   decodeStealthMetaAddress,
   SCHEME_ID,
   META_ADDRESS_PREFIX,
-} from "@wraith/sdk";
-import type { HexString } from "@wraith/sdk";
+} from "@wraith-horizen/sdk";
+import type { HexString } from "@wraith-horizen/sdk";
 import { txUrl, addressUrl } from "@/lib/explorer";
 import { WRAITH_SENDER_ABI, WRAITH_SENDER_ADDRESSES } from "@/config/contracts";
 import { useToast } from "@/context/toast";

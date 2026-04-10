@@ -4,8 +4,8 @@ import {
   deriveStealthKeys,
   encodeStealthMetaAddress,
   STEALTH_SIGNING_MESSAGE,
-} from "@wraith/sdk";
-import type { HexString } from "@wraith/sdk";
+} from "@wraith-horizen/sdk";
+import type { HexString } from "@wraith-horizen/sdk";
 import { useStealthKeysContext } from "@/context/stealth-keys";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";

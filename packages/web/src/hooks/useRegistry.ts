@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { REGISTRY_ABI, REGISTRY_ADDRESSES } from "@/config/contracts";
 import { SUBGRAPH_URLS } from "@/config/subgraph";
-import { SCHEME_ID } from "@wraith/sdk";
+import { SCHEME_ID } from "@wraith-horizen/sdk";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";
-import type { HexString } from "@wraith/sdk";
+import type { HexString } from "@wraith-horizen/sdk";
 
 export function useRegisterKeys(chainId: number) {
   const address = REGISTRY_ADDRESSES[chainId];

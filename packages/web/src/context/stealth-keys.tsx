@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from "react";
-import type { StealthKeys, HexString } from "@wraith/sdk";
+import type { StealthKeys, HexString } from "@wraith-horizen/sdk";
 
 interface StealthKeysContextValue {
   keys: StealthKeys | null;

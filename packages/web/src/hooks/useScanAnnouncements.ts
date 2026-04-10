@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
-import { scanAnnouncements, SCHEME_ID } from "@wraith/sdk";
-import type { HexString, Announcement, MatchedAnnouncement } from "@wraith/sdk";
+import { scanAnnouncements, SCHEME_ID } from "@wraith-horizen/sdk";
+import type { HexString, Announcement, MatchedAnnouncement } from "@wraith-horizen/sdk";
 import { SUBGRAPH_URLS } from "@/config/subgraph";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";
