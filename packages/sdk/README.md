@@ -72,6 +72,41 @@ const stealthPrivateKey = deriveStealthPrivateKey(
 );
 ```
 
+### Register a Wraith name
+
+```ts
+import { signNameRegistration, metaAddressToBytes } from "@wraith-horizen/sdk";
+
+const metaBytes = metaAddressToBytes(metaAddress);
+const signature = signNameRegistration("yourname", metaBytes, keys.spendingKey);
+
+// Submit to the WraithNames contract: register("yourname", metaBytes, signature)
+```
+
+### Sponsored name registration (via relayer)
+
+```ts
+import { signNameRegistrationOnBehalf, metaAddressToBytes } from "@wraith-horizen/sdk";
+
+const metaBytes = metaAddressToBytes(metaAddress);
+const signature = signNameRegistrationOnBehalf("yourname", metaBytes, keys.spendingKey, nonce);
+
+// Send { name, stealthMetaAddress: metaBytes, signature } to the relayer
+```
+
+### Update or release a name
+
+```ts
+import { signNameUpdate, signNameRelease, metaAddressToBytes } from "@wraith-horizen/sdk";
+
+// Update: point name to a new meta-address
+const newMetaBytes = metaAddressToBytes(newMetaAddress);
+const updateSig = signNameUpdate("yourname", newMetaBytes, keys.spendingKey);
+
+// Release: give up the name
+const releaseSig = signNameRelease("yourname", keys.spendingKey);
+```
+
 ## API
 
 | Function | Description |
@@ -83,6 +118,11 @@ const stealthPrivateKey = deriveStealthPrivateKey(
 | `checkStealthAddress(ephPub, viewKey, spendPub, viewTag)` | Check if a single announcement matches the recipient |
 | `scanAnnouncements(anns, viewKey, spendPub, spendKey)` | Scan a list of announcements and return matches with spending keys |
 | `deriveStealthPrivateKey(spendKey, ephPub, viewKey)` | Derive the private key that controls a stealth address |
+| `signNameRegistration(name, metaBytes, spendKey)` | Sign a name registration for the WraithNames contract |
+| `signNameRegistrationOnBehalf(name, metaBytes, spendKey, nonce)` | Sign a name registration for relayer-sponsored submission |
+| `signNameUpdate(name, newMetaBytes, spendKey)` | Sign a name update to point to a new meta-address |
+| `signNameRelease(name, spendKey)` | Sign a name release to free up the name |
+| `metaAddressToBytes(metaAddress)` | Strip the `st:eth:0x` prefix and return raw hex bytes |
 
 ## Design
 
