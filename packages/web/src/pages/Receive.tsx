@@ -11,14 +11,18 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { WalletButton } from "@/components/connect-button";
 import { useScanAnnouncements } from "@/hooks/useScanAnnouncements";
-import { useTokenBalances, type TokenBalance } from "@/hooks/useTokenBalances";
+import { useTokenBalances } from "@/hooks/useTokenBalances";
+import { useSponsoredWithdraw } from "@/hooks/useSponsoredWithdraw";
 import { useStealthKeysContext } from "@/context/stealth-keys";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";
 import { VaultStatus } from "@/components/vault-status";
+import { TOKEN_LIST } from "@/hooks/useSendStealth";
 import type { HexString } from "@wraith-horizen/sdk";
 import { addressUrl, txUrl } from "@/lib/explorer";
 import { horizenTestnet, horizenMainnet } from "@/config/chains";
+import { DestinationInput, useIsBlocked } from "@/components/destination-input";
+import { usePrivacy } from "@/context/privacy";
 
 function getChain(chainId: number) {
   if (chainId === 2651420) return horizenTestnet;
@@ -97,16 +101,29 @@ function StealthAddressRow({
     if (!isLoading) onDustStatus(isDust);
   }, [isLoading, isDust, onDustStatus]);
   const { toast } = useToast();
+  const { addUsedDestination } = usePrivacy();
+  const { sponsoredWithdraw, isWithdrawing: isSponsoredWithdrawing } = useSponsoredWithdraw();
   const [showKey, setShowKey] = useState(false);
   const [withdrawDest, setWithdrawDest] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawHash, setWithdrawHash] = useState<string | null>(null);
+  const isBlocked = useIsBlocked(withdrawDest);
 
   const url = addressUrl(chainId, address);
   const chain = getChain(chainId);
 
+  const hasETH = balances.some((b) => b.symbol === "ETH");
+  const hasTokensOnly = !hasETH && balances.length > 0;
+
+  // Find first ERC-20 token for sponsored withdraw
+  const tokens = TOKEN_LIST[chainId] ?? [];
+  const firstTokenBalance = balances.find((b) => b.symbol !== "ETH");
+  const firstTokenConfig = firstTokenBalance
+    ? tokens.find((t) => t.symbol === firstTokenBalance.symbol)
+    : null;
+
   const handleWithdraw = async () => {
-    if (!withdrawDest || !chain) return;
+    if (!withdrawDest || !chain || isBlocked) return;
     setIsWithdrawing(true);
     try {
       const hash = await withdrawETH(
@@ -115,12 +132,28 @@ function StealthAddressRow({
         chain
       );
       setWithdrawHash(hash);
+      addUsedDestination(withdrawDest);
       toast("Withdrawal sent", "success");
       onWithdrawn();
     } catch (err) {
       toast(parseError(err), "error");
     } finally {
       setIsWithdrawing(false);
+    }
+  };
+
+  const handleSponsoredWithdraw = async () => {
+    if (!withdrawDest || isBlocked || !firstTokenConfig || firstTokenConfig.address === "native") return;
+    const hash = await sponsoredWithdraw(
+      privateKey as `0x${string}`,
+      address as `0x${string}`,
+      firstTokenConfig.address as `0x${string}`,
+      withdrawDest as `0x${string}`
+    );
+    if (hash) {
+      setWithdrawHash(hash);
+      addUsedDestination(withdrawDest);
+      onWithdrawn();
     }
   };
 
@@ -186,21 +219,37 @@ function StealthAddressRow({
       </div>
 
       {balances.length > 0 && !withdrawHash && (
-        <div className="flex gap-2 ml-8">
-          <input
-            type="text"
-            value={withdrawDest}
-            onChange={(e) => setWithdrawDest(e.target.value)}
-            placeholder="Destination (0x...)"
-            className="flex-1 bg-surface-container-lowest border-none py-3 px-4 font-headline text-sm text-primary focus:ring-0"
-          />
-          <button
-            onClick={handleWithdraw}
-            disabled={!withdrawDest || isWithdrawing}
-            className="brushed-metal px-6 py-3 text-on-primary font-headline font-bold uppercase tracking-widest text-[10px] hover:brightness-110 transition-all disabled:opacity-30"
-          >
-            {isWithdrawing ? "..." : "Withdraw"}
-          </button>
+        <div className="ml-8 space-y-3">
+          <div className="flex gap-2">
+            <DestinationInput
+              value={withdrawDest}
+              onChange={setWithdrawDest}
+              placeholder="Fresh destination address (0x...)"
+              className="w-full bg-surface-container-lowest border-none py-3 px-4 font-headline text-sm text-primary focus:ring-0"
+            />
+            {hasETH ? (
+              <button
+                onClick={handleWithdraw}
+                disabled={!withdrawDest || isWithdrawing || isBlocked}
+                className="brushed-metal px-6 py-3 text-on-primary font-headline font-bold uppercase tracking-widest text-[10px] hover:brightness-110 transition-all disabled:opacity-30 flex-shrink-0"
+              >
+                {isWithdrawing ? "..." : "Withdraw"}
+              </button>
+            ) : (
+              <button
+                onClick={handleSponsoredWithdraw}
+                disabled={!withdrawDest || isSponsoredWithdrawing || !firstTokenConfig || isBlocked}
+                className="bg-surface-container-high px-6 py-3 text-primary font-headline font-bold uppercase tracking-widest text-[10px] hover:brightness-110 transition-all disabled:opacity-30 border border-outline-variant flex-shrink-0"
+              >
+                {isSponsoredWithdrawing ? "..." : "Sponsored"}
+              </button>
+            )}
+          </div>
+          {hasTokensOnly && (
+            <p className="text-[10px] text-on-surface-variant font-body">
+              No ETH for gas — withdrawal will be sponsored via relayer. A small fee is deducted from the token amount.
+            </p>
+          )}
         </div>
       )}
 
@@ -278,6 +327,8 @@ export default function Receive() {
   const [showDust, setShowDust] = useState(false);
   const [batchDest, setBatchDest] = useState("");
   const [isBatchWithdrawing, setIsBatchWithdrawing] = useState(false);
+  const { addUsedDestination } = usePrivacy();
+  const isBatchBlocked = useIsBlocked(batchDest);
 
   const markDust = useCallback((i: number, isDust: boolean) => {
     setDustSet((prev) => {
@@ -329,7 +380,7 @@ export default function Receive() {
   };
 
   const handleBatchWithdraw = async () => {
-    if (!batchDest || selected.size === 0) return;
+    if (!batchDest || selected.size === 0 || isBatchBlocked) return;
 
     const chain = getChain(chainId);
     if (!chain) return;
@@ -357,7 +408,10 @@ export default function Receive() {
       }
     }
 
-    if (success > 0) toast(`Withdrew from ${success} address${success > 1 ? "es" : ""}`, "success");
+    if (success > 0) {
+      addUsedDestination(batchDest);
+      toast(`Withdrew from ${success} address${success > 1 ? "es" : ""}`, "success");
+    }
     if (failed > 0) toast(errors.join(" | "), "error");
 
     setIsBatchWithdrawing(false);
@@ -455,17 +509,16 @@ export default function Receive() {
           </div>
           {selected.size > 0 && (
             <div className="flex gap-2">
-              <input
-                type="text"
+              <DestinationInput
                 value={batchDest}
-                onChange={(e) => setBatchDest(e.target.value)}
-                placeholder="Destination for all (0x...)"
-                className="flex-1 bg-surface-container-lowest border-none py-3 px-4 font-headline text-sm text-primary focus:ring-0"
+                onChange={setBatchDest}
+                placeholder="Fresh destination for all (0x...)"
+                className="w-full bg-surface-container-lowest border-none py-3 px-4 font-headline text-sm text-primary focus:ring-0"
               />
               <button
                 onClick={handleBatchWithdraw}
-                disabled={!batchDest || isBatchWithdrawing}
-                className="brushed-metal px-6 py-3 text-on-primary font-headline font-bold uppercase tracking-widest text-[10px] hover:brightness-110 transition-all disabled:opacity-30"
+                disabled={!batchDest || isBatchWithdrawing || isBatchBlocked}
+                className="brushed-metal px-6 py-3 text-on-primary font-headline font-bold uppercase tracking-widest text-[10px] hover:brightness-110 transition-all disabled:opacity-30 flex-shrink-0"
               >
                 {isBatchWithdrawing ? "..." : `Withdraw ${selected.size}`}
               </button>

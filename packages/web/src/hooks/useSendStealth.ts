@@ -51,6 +51,7 @@ export function useSendStealth(chainId: number) {
   const [needsApproval, setNeedsApproval] = useState(false);
   const [pendingToken, setPendingToken] = useState<TokenOption | null>(null);
   const [pendingAmount, setPendingAmount] = useState<bigint>(0n);
+  const [pendingGasTip, setPendingGasTip] = useState<bigint>(0n);
 
   const toastedApprovalError = useRef<string | null>(null);
   const toastedSendError = useRef<string | null>(null);
@@ -127,11 +128,12 @@ export function useSendStealth(chainId: number) {
         stealthResult.ephemeralPubKey as `0x${string}`,
         metadata as `0x${string}`,
       ],
+      value: pendingGasTip,
     });
-  }, [isApprovalSuccess, needsApproval, stealthResult, pendingToken, pendingAmount, chainId, writeContract]);
+  }, [isApprovalSuccess, needsApproval, stealthResult, pendingToken, pendingAmount, pendingGasTip, chainId, writeContract]);
 
   const generateAndSend = useCallback(
-    (metaAddress: string, amount: string, token: TokenOption) => {
+    (metaAddress: string, amount: string, token: TokenOption, gasTipEth?: string) => {
       const senderAddress = WRAITH_SENDER_ADDRESSES[chainId];
       if (!senderAddress) {
         toast("Sender contract not deployed on this network", "error");
@@ -164,8 +166,10 @@ export function useSendStealth(chainId: number) {
           });
         } else {
           const parsedAmount = parseUnits(amount, token.decimals);
+          const tip = gasTipEth ? parseEther(gasTipEth) : 0n;
           setPendingToken(token);
           setPendingAmount(parsedAmount);
+          setPendingGasTip(tip);
           setNeedsApproval(true);
 
           writeApproval({
@@ -189,6 +193,7 @@ export function useSendStealth(chainId: number) {
     setNeedsApproval(false);
     setPendingToken(null);
     setPendingAmount(0n);
+    setPendingGasTip(0n);
     toastedApprovalError.current = null;
     toastedSendError.current = null;
     toastedSuccess.current = null;

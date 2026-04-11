@@ -1,6 +1,6 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { keccak256, toHex, toBytes, getAddress } from "viem";
-import type { HexString, GeneratedStealthAddress } from "./types.js";
+import type { HexString, GeneratedStealthAddress } from "./types";
 
 /**
  * Generates a one-time stealth address for a recipient.

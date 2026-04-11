@@ -10,7 +10,7 @@ export interface TokenBalance {
 }
 
 // Below this ETH amount, consider it dust (gas leftovers)
-export const DUST_THRESHOLD = 100_000_000_000_000n; // 0.0001 ETH
+export const DUST_THRESHOLD = 10_000_000_000_000n; // 0.00001 ETH
 
 export function useTokenBalances(address: `0x${string}` | undefined) {
   const chainId = useChainId();

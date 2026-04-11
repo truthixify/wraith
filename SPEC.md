@@ -149,15 +149,13 @@ Wraith is a monorepo using pnpm workspaces with three parts: the SDK package, th
 - [x] **Batch withdraw** — Receive page supports selecting multiple stealth addresses and withdrawing all to one destination sequentially.
 - [x] **One-click withdrawal** — Derive stealth private key in memory, sign withdrawal, discard key. No key ever stored or displayed unless explicitly revealed.
 - [x] **Subgraph indexing via Goldsky** — Announcements indexed in real time via Goldsky subgraph. Scanning queries GraphQL instead of raw RPC logs.
-- [ ] **Human-readable names** — WraithNames contract for on-chain name-to-wallet mapping. Two-hop lookup: name → wallet → meta-address.
-- [ ] **Payment links** — Shareable URLs like `wraith.app/pay/truth.wraith` that open the send page pre-filled with the recipient.
-- [ ] **Wraith name search** — Public lookup page for searching Wraith names and retrieving meta-addresses.
-- [ ] **UX privacy protections** — Connected wallet blocking, fresh destination enforcement, timing suggestions, balance batching warnings, plain language warnings at every step.
-- [ ] **Multi-recipient airdrop contract** — On-chain batch that takes meta-addresses + amounts, generates stealth addresses, transfers, and announces all in one transaction.
-- [ ] **Paymaster** — ERC-4337 paymaster as an alternative to EIP-7702, for smart contract wallet compatibility.
-- [ ] **ZK spending trail** — ZK shielded pool for withdrawals that breaks the on-chain link between stealth address and spending destination.
-- [ ] **FHE-DKSAP** — FHE-based Dual Key Stealth Address Protocol for quantum-resistant stealth addresses and trustless outsourced scanning without sharing the viewing key.
+- [x] **UX privacy protections** — Connected wallet blocking, fresh destination enforcement, plain language warnings at every step. Privacy context tracks all connected addresses and used destinations per session.
+- [x] **Human-readable names** — WraithNames contract maps names directly to stealth meta-addresses. No wallet address stored. Ownership proven via spending key signature. Supports direct and relayer-sponsored registration.
+- [x] **Payment links** — Shareable URLs like `wraith.app/pay/truth.wraith` that open the send page pre-filled with the recipient. Depends on names.
+- [ ] **On-chain private messaging** — Wallets with a registered stealth meta-address already have the cryptographic keys for ECDH key exchange. A lightweight messaging contract that lets two addresses exchange encrypted messages on-chain — content encrypted to the recipient's viewing key, sender anonymous. No new key infrastructure needed. Useful for payment memos, contract negotiations, and DAO governance communication without leaving the chain.
 - [ ] **Mobile** — Mobile-optimised experience for scanning and spending.
+- [ ] **Paymaster** — ERC-4337 paymaster as an alternative to EIP-7702, for smart contract wallet compatibility.
+- [ ] **FHE-DKSAP** — FHE-based Dual Key Stealth Address Protocol for trustless outsourced scanning — a scanning service can find your incoming transfers without you ever sharing your viewing key.
 
 ---
 

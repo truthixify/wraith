@@ -1,7 +1,7 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { toBytes } from "viem";
-import { META_ADDRESS_PREFIX } from "./constants.js";
-import type { HexString, StealthMetaAddress } from "./types.js";
+import { META_ADDRESS_PREFIX } from "./constants";
+import type { HexString, StealthMetaAddress } from "./types";
 
 /**
  * Encodes spending and viewing public keys into a stealth meta-address string.

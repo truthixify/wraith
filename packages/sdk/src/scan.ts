@@ -1,12 +1,12 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { keccak256, toHex, toBytes, getAddress } from "viem";
-import { deriveStealthPrivateKey } from "./spend.js";
-import { SCHEME_ID } from "./constants.js";
+import { deriveStealthPrivateKey } from "./spend";
+import { SCHEME_ID } from "./constants";
 import type {
   HexString,
   Announcement,
   MatchedAnnouncement,
-} from "./types.js";
+} from "./types";
 
 /**
  * Checks whether a single announcement belongs to the recipient.

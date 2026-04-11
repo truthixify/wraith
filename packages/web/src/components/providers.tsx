@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { config } from "@/config/wagmi";
 import { StealthKeysProvider } from "@/context/stealth-keys";
 import { ToastProvider } from "@/context/toast";
+import { PrivacyProvider } from "@/context/privacy";
 import { useState } from "react";
 
 import "@rainbow-me/rainbowkit/styles.css";
@@ -16,7 +17,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <StealthKeysProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <PrivacyProvider>{children}</PrivacyProvider>
+            </ToastProvider>
           </StealthKeysProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

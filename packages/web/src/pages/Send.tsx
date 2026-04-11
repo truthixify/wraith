@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther, parseUnits, erc20Abi } from "viem";
 import { WalletButton } from "@/components/connect-button";
@@ -16,6 +17,7 @@ import {
 import type { HexString } from "@wraith-horizen/sdk";
 import { txUrl, addressUrl } from "@/lib/explorer";
 import { WRAITH_SENDER_ABI, WRAITH_SENDER_ADDRESSES } from "@/config/contracts";
+import { useResolveName } from "@/hooks/useWraithNames";
 import { useToast } from "@/context/toast";
 import { parseError } from "@/lib/errors";
 
@@ -51,21 +53,38 @@ export default function Send() {
 
   const [mode, setMode] = useState<"single" | "batch">("single");
 
+  // Pre-fill from query param
+  const [searchParams] = useSearchParams();
+  const prefillTo = searchParams.get("to") ?? "";
+
   // Single send
-  const [recipient, setRecipient] = useState("");
+  const [recipient, setRecipient] = useState(prefillTo);
   const [amount, setAmount] = useState("");
   const [selectedToken, setSelectedToken] = useState<TokenOption>(tokens[0]);
+  const [includeGasTip, setIncludeGasTip] = useState(true);
+  const [gasTipAmount, setGasTipAmount] = useState("0.001");
+  const isERC20 = selectedToken.address !== "native";
 
   const isWalletAddress = isAddress(recipient);
   const isMetaAddress = recipient.startsWith(META_ADDRESS_PREFIX);
+
+  // Strip .wraith suffix if present, then check if it's a valid name
+  const cleanedName = recipient.replace(/\.wraith$/i, "").toLowerCase();
+  const isWraithName = !isWalletAddress && !isMetaAddress && cleanedName.length >= 3 && /^[a-z0-9]+$/.test(cleanedName);
 
   const { data: lookedUpMeta } = useLookupMetaAddress(
     isWalletAddress ? (recipient as `0x${string}`) : undefined,
     chainId
   );
 
+  const { metaAddress: nameResolved } = useResolveName(
+    isWraithName ? cleanedName : undefined
+  );
+
   const metaAddress = isMetaAddress
     ? recipient
+    : nameResolved
+    ? nameResolved
     : lookedUpMeta
     ? `${META_ADDRESS_PREFIX}${(lookedUpMeta as string).slice(2)}`
     : "";
@@ -173,6 +192,8 @@ export default function Send() {
       });
     } else {
       const amounts = batchEntries.map((e) => parseUnits(e.amount, batchToken.decimals));
+      const tipPerRecipient = includeGasTip ? parseEther(gasTipAmount) : 0n;
+      const totalTip = tipPerRecipient * BigInt(batchEntries.length);
 
       writeBatch({
         address: senderAddress,
@@ -186,6 +207,7 @@ export default function Send() {
           metadatas,
           amounts,
         ],
+        value: totalTip,
       });
     }
   };
@@ -280,7 +302,7 @@ export default function Send() {
                       type="text"
                       value={recipient}
                       onChange={(e) => setRecipient(e.target.value)}
-                      placeholder="st:eth:0x... or 0x..."
+                      placeholder="name, st:eth:0x..., or 0x..."
                       className="w-full bg-surface-container-lowest border-none py-4 px-4 font-headline text-lg text-primary focus:ring-0 transition-colors"
                     />
                     {isWalletAddress && lookedUpMeta && (
@@ -294,6 +316,20 @@ export default function Send() {
                       <div className="absolute right-4 top-1/2 -translate-y-1/2">
                         <span className="font-headline text-[10px] text-primary uppercase bg-surface-container-high px-2 py-0.5">
                           Meta-Address
+                        </span>
+                      </div>
+                    )}
+                    {isWraithName && nameResolved && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        <span className="font-headline text-[10px] text-primary uppercase bg-surface-container-high px-2 py-0.5">
+                          {cleanedName}.wraith
+                        </span>
+                      </div>
+                    )}
+                    {isWraithName && !nameResolved && cleanedName.length >= 3 && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        <span className="font-headline text-[10px] text-on-surface-variant uppercase bg-surface-container-high px-2 py-0.5">
+                          Not found
                         </span>
                       </div>
                     )}
@@ -327,9 +363,42 @@ export default function Send() {
                   </div>
                 </div>
 
+                {isERC20 && (
+                  <div className="flex items-center justify-between bg-surface-container-low p-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setIncludeGasTip(!includeGasTip)}
+                        className={`w-4 h-4 border flex-shrink-0 flex items-center justify-center transition-colors ${
+                          includeGasTip
+                            ? "bg-primary border-primary"
+                            : "border-outline-variant hover:border-primary"
+                        }`}
+                      >
+                        {includeGasTip && (
+                          <span className="text-[10px] text-on-primary font-bold">+</span>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-on-surface-variant font-body">
+                        Include ETH gas tip for recipient
+                      </span>
+                    </div>
+                    {includeGasTip && (
+                      <input
+                        type="text"
+                        value={gasTipAmount}
+                        onChange={(e) => setGasTipAmount(e.target.value)}
+                        className="w-20 bg-surface-container-lowest border-none py-1.5 px-3 font-headline text-xs text-primary text-right focus:ring-0"
+                      />
+                    )}
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
-                    if (metaAddress && amount) generateAndSend(metaAddress, amount, selectedToken);
+                    if (metaAddress && amount) {
+                      const tip = isERC20 && includeGasTip ? gasTipAmount : undefined;
+                      generateAndSend(metaAddress, amount, selectedToken, tip);
+                    }
                   }}
                   disabled={!metaAddress || !amount || isSinglePending}
                   className="w-full brushed-metal text-on-primary font-headline font-bold uppercase tracking-widest py-5 text-sm hover:brightness-110 transition-all active:scale-[0.99] disabled:opacity-30"

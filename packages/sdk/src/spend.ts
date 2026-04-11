@@ -1,6 +1,6 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { keccak256, toHex, toBytes } from "viem";
-import type { HexString } from "./types.js";
+import type { HexString } from "./types";
 
 /**
  * Derives the private key that controls a stealth address.

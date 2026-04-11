@@ -9,6 +9,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @title WraithSender
 /// @notice Atomically transfers assets to stealth addresses and publishes announcements.
 ///         Supports single and batch sends for both native ETH and ERC-20 tokens.
+///         ERC-20 sends accept an optional ETH gas tip that is forwarded to the stealth
+///         address so the recipient can self-fund a withdrawal.
 ///         Prevents the failure case where funds land but the announcement is never published.
 contract WraithSender is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -17,6 +19,7 @@ contract WraithSender is ReentrancyGuard {
 
     error LengthMismatch();
     error InsufficientValue();
+    error TipTransferFailed();
 
     constructor(address _announcer) {
         announcer = IERC5564Announcer(_announcer);
@@ -40,6 +43,7 @@ contract WraithSender is ReentrancyGuard {
 
     /// @notice Send ERC-20 tokens to a stealth address and announce atomically.
     ///         Caller must approve this contract for the token amount first.
+    ///         If msg.value > 0, the ETH is forwarded to the stealth address as a gas tip.
     /// @param token The ERC-20 token contract address.
     /// @param amount The amount of tokens to send.
     /// @param schemeId The stealth address scheme ID.
@@ -53,8 +57,14 @@ contract WraithSender is ReentrancyGuard {
         address stealthAddress,
         bytes calldata ephemeralPubKey,
         bytes calldata metadata
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         IERC20(token).safeTransferFrom(msg.sender, stealthAddress, amount);
+
+        if (msg.value > 0) {
+            (bool sent, ) = stealthAddress.call{value: msg.value}("");
+            if (!sent) revert TipTransferFailed();
+        }
+
         announcer.announce(schemeId, stealthAddress, ephemeralPubKey, metadata);
     }
 
@@ -93,6 +103,7 @@ contract WraithSender is ReentrancyGuard {
 
     /// @notice Batch send ERC-20 tokens to multiple stealth addresses and announce each.
     ///         Caller must approve this contract for the total amount first.
+    ///         If msg.value > 0, the ETH is split equally across all stealth addresses as gas tips.
     /// @param token The ERC-20 token contract address (same token for all recipients).
     /// @param schemeId The stealth address scheme ID.
     /// @param stealthAddresses Array of generated stealth addresses.
@@ -106,7 +117,7 @@ contract WraithSender is ReentrancyGuard {
         bytes[] calldata ephemeralPubKeys,
         bytes[] calldata metadatas,
         uint256[] calldata amounts
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         uint256 len = stealthAddresses.length;
         if (
             ephemeralPubKeys.length != len ||
@@ -114,8 +125,16 @@ contract WraithSender is ReentrancyGuard {
             amounts.length != len
         ) revert LengthMismatch();
 
+        uint256 tipPerRecipient = len > 0 ? msg.value / len : 0;
+
         for (uint256 i; i < len; ) {
             IERC20(token).safeTransferFrom(msg.sender, stealthAddresses[i], amounts[i]);
+
+            if (tipPerRecipient > 0) {
+                (bool sent, ) = stealthAddresses[i].call{value: tipPerRecipient}("");
+                if (!sent) revert TipTransferFailed();
+            }
+
             announcer.announce(schemeId, stealthAddresses[i], ephemeralPubKeys[i], metadatas[i]);
             unchecked { ++i; }
         }

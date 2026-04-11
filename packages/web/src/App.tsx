@@ -7,6 +7,7 @@ import Setup from "./pages/Setup";
 import Send from "./pages/Send";
 import Receive from "./pages/Receive";
 import About from "./pages/About";
+import Pay from "./pages/Pay";
 
 export function App() {
   return (
@@ -20,6 +21,7 @@ export function App() {
           <Route path="/send" element={<Send />} />
           <Route path="/receive" element={<Receive />} />
           <Route path="/about" element={<About />} />
+          <Route path="/pay/:name" element={<Pay />} />
         </Routes>
       </main>
       <Footer />

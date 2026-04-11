@@ -1,6 +1,6 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { keccak256, toHex, toBytes } from "viem";
-import type { HexString, StealthKeys } from "./types.js";
+import type { HexString, StealthKeys } from "./types";
 
 /**
  * Derives stealth spending and viewing keys from a wallet signature.

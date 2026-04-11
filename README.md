@@ -6,7 +6,7 @@ Stealth addresses for Horizen. Send and receive any asset privately with no on-c
 
 Wraith implements [ERC-5564](https://eips.ethereum.org/EIPS/eip-5564) (Stealth Address Messenger) and [ERC-6538](https://eips.ethereum.org/EIPS/eip-6538) (Stealth Meta-Address Registry) on Horizen. It ships as three packages:
 
-- **`@wraith/sdk`** — TypeScript SDK for stealth address cryptography. Wallet-agnostic, no RPC calls, pure computation.
+- **`@wraith-horizen/sdk`** — TypeScript SDK for stealth address cryptography. Wallet-agnostic, no RPC calls, pure computation.
 - **`contracts/`** — Solidity contracts (Hardhat). Announcer, Registry, WraithSender, WraithWithdrawer.
 - **`packages/web`** — Vite + React web app with RainbowKit wallet integration.
 
@@ -47,7 +47,7 @@ cd packages/web && pnpm dev
 wraith/
 ├── contracts/            # Hardhat — Solidity contracts + tests + deploy scripts
 ├── packages/
-│   ├── sdk/              # @wraith/sdk — stealth address cryptography
+│   ├── sdk/              # @wraith-horizen/sdk — stealth address cryptography
 │   └── web/              # Vite + React web app
 ├── subgraph/             # Goldsky subgraph config for indexing
 ├── SPEC.md               # Full specification
@@ -66,7 +66,7 @@ import {
   scanAnnouncements,
   deriveStealthPrivateKey,
   STEALTH_SIGNING_MESSAGE,
-} from "@wraith/sdk";
+} from "@wraith-horizen/sdk";
 
 // Derive keys from a wallet signature
 const keys = deriveStealthKeys(signature);
@@ -105,15 +105,13 @@ The web app connects to Horizen Testnet and Mainnet via RainbowKit. Four section
 - [x] Batch withdraw
 - [x] One-click withdrawal
 - [x] Subgraph indexing via Goldsky
-- [ ] Human-readable names (WraithNames contract)
-- [ ] Payment links
-- [ ] Wraith name search
-- [ ] UX privacy protections
-- [ ] Multi-recipient airdrop contract
-- [ ] Paymaster (ERC-4337)
-- [ ] ZK spending trail (shielded pool)
-- [ ] FHE-DKSAP (quantum-resistant stealth addresses)
+- [x] UX privacy protections
+- [x] Human-readable names (WraithNames contract)
+- [x] Payment links
+- [ ] On-chain private messaging
 - [ ] Mobile
+- [ ] Paymaster (ERC-4337)
+- [ ] FHE-DKSAP (trustless outsourced scanning)
 
 ## References
 

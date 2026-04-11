@@ -91,7 +91,7 @@ export const WRAITH_SENDER_ABI = [
       { name: "metadata", type: "bytes" },
     ],
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
   },
   {
     type: "function",
@@ -118,12 +118,12 @@ export const WRAITH_SENDER_ABI = [
       { name: "amounts", type: "uint256[]" },
     ],
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
   },
 ] as const;
 
 export const WRAITH_SENDER_ADDRESSES: Record<number, `0x${string}`> = {
-  2651420: "0xb01a0A37E3f4Cc95ff7b26B28c9DA5F73f7A3e61",
+  2651420: "0x226C5eb4e139D9fa01cc09eA318638b090b12095",
 };
 
 export const WRAITH_WITHDRAWER_ABI = [
@@ -148,6 +148,47 @@ export const WRAITH_WITHDRAWER_ABI = [
 
 export const WRAITH_WITHDRAWER_ADDRESSES: Record<number, `0x${string}`> = {
   2651420: "0x9F7f1C9d8B5a83245c6fC8415Ef744C458101711",
+};
+
+export const WRAITH_NAMES_ABI = [
+  {
+    type: "function",
+    name: "register",
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "stealthMetaAddress", type: "bytes" },
+      { name: "signature", type: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "resolve",
+    inputs: [{ name: "name", type: "string" }],
+    outputs: [{ name: "", type: "bytes" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "nameOf",
+    inputs: [{ name: "stealthMetaAddress", type: "bytes" }],
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    name: "NameRegistered",
+    inputs: [
+      { name: "nameHash", type: "bytes32", indexed: true },
+      { name: "name", type: "string", indexed: false },
+      { name: "stealthMetaAddress", type: "bytes", indexed: false },
+    ],
+  },
+] as const;
+
+export const WRAITH_NAMES_ADDRESSES: Record<number, `0x${string}`> = {
+  2651420: "0x3d46f709a99A3910f52bD292211Eb5D557F882D6",
 };
 
 // Block number at which contracts were deployed — scan logs from here, not from 0
