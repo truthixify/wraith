@@ -134,9 +134,53 @@ The app supports MetaMask, Coinbase Wallet, WalletConnect, and any EIP-1193 comp
 
 ---
 
+## The agent
+
+Wraith Agent is a privacy-first AI assistant. Each user connects their wallet and creates their own agent with its own EVM wallet, its own `.wraith` name, and its own stealth identity. The agent handles sending, receiving, invoicing, scheduled payments, withdrawal optimization, and privacy analysis — all through natural language via Gemini AI with tool calling.
+
+The agent server is an Express application with SQLite persistence. Each agent's private key is encrypted at rest with AES-256-GCM. The client is a React chat UI that connects wallets via RainbowKit and talks to the server via REST. Pay and Invoice pages have direct on-chain payment via the user's connected wallet.
+
+The server includes 16 tools: `send_payment`, `pay_agent`, `scan_payments`, `get_balance`, `create_invoice`, `check_invoices`, `withdraw`, `withdraw_all`, `register_name`, `resolve_name`, `get_agent_info`, `fund_wallet`, `privacy_check`, `schedule_payment`, `list_schedules`, `manage_schedule`.
+
+The server also includes stealth x402 middleware that gates API endpoints behind stealth payments — the client pays to a fresh stealth address, claims a session token, and accesses the API for one hour.
+
+---
+
+## The agent SDK
+
+The current agent server is a reference implementation. The plan is to extract the engine into a standalone SDK (`@wraith-horizen/agent-sdk`) that any developer can embed in their own application to give users managed private payment agents.
+
+The SDK will expose the agent lifecycle (create, chat, schedule), all 16 tools as standalone callable functions, and interfaces for pluggable backends:
+
+- **`KeyStore`** — `create()`, `sign()`, `derive()`. Reference: AES-256-GCM. Production: TEE-sealed keys, HSM, or MPC. The agent never handles raw keys — it calls the store.
+- **`AgentStore`** — CRUD for agent records. Reference: SQLite. Swap for Postgres, DynamoDB, etc.
+- **`ConversationStore`** — chat history persistence. Reference: SQLite.
+- **`InvoiceStore`** — invoice lifecycle. Reference: SQLite.
+- **`NotificationStore`** — alert delivery. Reference: SQLite.
+- **`ScheduleStore`** — recurring payment management. Reference: SQLite.
+
+The AI integration is LLM-agnostic. The tool declarations are plain JSON schemas. The chat loop routes function calls to tool implementations and feeds structured results back. Swap Gemini for OpenAI, Claude, Llama, or any model with tool calling support.
+
+The production deployment target is TEE. Private keys exist only in enclave memory. Encryption keys are sealed to hardware. TEE attestation proves the server runs the exact published code. This is what makes the agent trustworthy for real funds on mainnet.
+
+---
+
 ## Monorepo structure
 
-Wraith is a monorepo using pnpm workspaces with three parts: the SDK package, the web app, and a Hardhat project for the contracts. The SDK and web app live under a packages directory. The contracts sit at the root level alongside them.
+Wraith is a monorepo using pnpm workspaces. The SDK and web app live under a packages directory. The contracts sit at the root level alongside them.
+
+```
+wraith/
+├── contracts/            # Hardhat — Solidity contracts + tests + deploy scripts
+├── packages/
+│   ├── sdk/              # @wraith-horizen/sdk — stealth address cryptography
+│   ├── web/              # Vite + React — manual stealth transfers
+│   ├── server/           # Express — AI agent server + Gemini + SQLite + x402
+│   └── client/           # Vite + React — agent chat UI
+├── relayer/              # Express — gas sponsorship + name registration
+├── subgraph/             # Goldsky subgraph config for indexing
+└── SPEC.md
+```
 
 ---
 
@@ -152,6 +196,9 @@ Wraith is a monorepo using pnpm workspaces with three parts: the SDK package, th
 - [x] **UX privacy protections** — Connected wallet blocking, fresh destination enforcement, plain language warnings at every step. Privacy context tracks all connected addresses and used destinations per session.
 - [x] **Human-readable names** — WraithNames contract maps names directly to stealth meta-addresses. No wallet address stored. Ownership proven via spending key signature. Supports direct and relayer-sponsored registration.
 - [x] **Payment links** — Shareable URLs like `wraith.app/pay/truth.wraith` that open the send page pre-filled with the recipient. Depends on names.
+- [x] **AI Agent system** — Express server with Gemini AI integration. Each agent has its own EVM wallet, stealth keys, and .wraith name. Tool calling for send, scan, withdraw, invoice, schedule payments, privacy analysis. Chat client with conversation persistence, notifications, slash commands. Stealth x402 middleware for gating API endpoints behind stealth payments.
+- [ ] **Agent SDK extraction** — `@wraith-horizen/agent-sdk` with pluggable AI, storage, and key management. Standalone tool functions. `KeyStore`, `AgentStore`, `ConversationStore` interfaces.
+- [ ] **TEE deployment** — production key security. Private keys in enclave memory. Sealed encryption keys. TEE attestation for code integrity.
 - [ ] **On-chain private messaging** — Wallets with a registered stealth meta-address already have the cryptographic keys for ECDH key exchange. A lightweight messaging contract that lets two addresses exchange encrypted messages on-chain — content encrypted to the recipient's viewing key, sender anonymous. No new key infrastructure needed. Useful for payment memos, contract negotiations, and DAO governance communication without leaving the chain.
 - [ ] **Mobile** — Mobile-optimised experience for scanning and spending.
 - [ ] **Paymaster** — ERC-4337 paymaster as an alternative to EIP-7702, for smart contract wallet compatibility.
