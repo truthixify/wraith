@@ -161,7 +161,7 @@ The SDK will expose the agent lifecycle (create, chat, schedule), all 16 tools a
 
 The AI integration is LLM-agnostic. The tool declarations are plain JSON schemas. The chat loop routes function calls to tool implementations and feeds structured results back. Swap Gemini for OpenAI, Claude, Llama, or any model with tool calling support.
 
-The production deployment target is TEE. Private keys exist only in enclave memory. Encryption keys are sealed to hardware. TEE attestation proves the server runs the exact published code. This is what makes the agent trustworthy for real funds on mainnet.
+The TEE implementation (`packages/tee/`) is a NestJS application that runs inside a Phala TEE (Intel TDX). It uses `@phala/dstack-sdk` for deterministic key derivation — the same agentId always produces the same EVM private key, but the key never leaves enclave memory and is never stored in any database. The server derives keys on-demand for each operation, uses them to sign, and discards them immediately. PostgreSQL with TypeORM handles persistence (agents, conversations, invoices, notifications, scheduled payments, seen stealth addresses, agent memory, pending actions, agent settings). TEE attestation via `getQuote()` proves to any verifier that the agent's address was generated inside genuine hardware.
 
 ---
 
@@ -176,7 +176,8 @@ wraith/
 │   ├── sdk/              # @wraith-horizen/sdk — stealth address cryptography
 │   ├── web/              # Vite + React — manual stealth transfers
 │   ├── server/           # Express — AI agent server + Gemini + SQLite + x402
-│   └── client/           # Vite + React — agent chat UI
+│   ├── client/           # Vite + React — agent chat UI
+│   └── tee/              # NestJS — TEE-secured agent server (Phala TEE + PostgreSQL)
 ├── relayer/              # Express — gas sponsorship + name registration
 ├── subgraph/             # Goldsky subgraph config for indexing
 └── SPEC.md
@@ -198,7 +199,7 @@ wraith/
 - [x] **Payment links** — Shareable URLs like `wraith.app/pay/truth.wraith` that open the send page pre-filled with the recipient. Depends on names.
 - [x] **AI Agent system** — Express server with Gemini AI integration. Each agent has its own EVM wallet, stealth keys, and .wraith name. Tool calling for send, scan, withdraw, invoice, schedule payments, privacy analysis. Chat client with conversation persistence, notifications, slash commands. Stealth x402 middleware for gating API endpoints behind stealth payments.
 - [ ] **Agent SDK extraction** — `@wraith-horizen/agent-sdk` with pluggable AI, storage, and key management. Standalone tool functions. `KeyStore`, `AgentStore`, `ConversationStore` interfaces.
-- [ ] **TEE deployment** — production key security. Private keys in enclave memory. Sealed encryption keys. TEE attestation for code integrity.
+- [x] **TEE deployment** — NestJS server running in Phala TEE (Intel TDX). Private keys derived on-demand via DStack, never stored. PostgreSQL persistence. TEE attestation for code integrity.
 - [ ] **On-chain private messaging** — Wallets with a registered stealth meta-address already have the cryptographic keys for ECDH key exchange. A lightweight messaging contract that lets two addresses exchange encrypted messages on-chain — content encrypted to the recipient's viewing key, sender anonymous. No new key infrastructure needed. Useful for payment memos, contract negotiations, and DAO governance communication without leaving the chain.
 - [ ] **Mobile** — Mobile-optimised experience for scanning and spending.
 - [ ] **Paymaster** — ERC-4337 paymaster as an alternative to EIP-7702, for smart contract wallet compatibility.

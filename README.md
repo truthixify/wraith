@@ -64,7 +64,8 @@ wraith/
 │   ├── sdk/              # @wraith-horizen/sdk — stealth address cryptography
 │   ├── web/              # Vite + React — manual stealth transfers UI
 │   ├── server/           # Express — AI agent server (reference implementation)
-│   └── client/           # Vite + React — agent chat UI
+│   ├── client/           # Vite + React — agent chat UI
+│   └── tee/              # NestJS — TEE-secured agent server (Phala TEE + PostgreSQL)
 ├── relayer/              # Express — gas sponsorship + name registration
 ├── subgraph/             # Goldsky subgraph for indexing announcements
 └── SPEC.md               # Full protocol specification
@@ -131,9 +132,9 @@ Client (React + RainbowKit)  ◄──REST──►  Server (Express + Gemini + 
 
 ### Security
 
-**Current (testnet):** Agent private keys encrypted with AES-256-GCM in SQLite. Encryption key in `.env`. All operations server-side.
+**Express server** (`packages/server/`): Agent private keys encrypted with AES-256-GCM in SQLite. Encryption key in `.env`. Suitable for testnet and development.
 
-**Production (mainnet):** TEE deployment. Private keys exist only in enclave memory. Encryption keys sealed to hardware. TEE attestation proves correct code. Even the operator cannot extract keys.
+**TEE server** (`packages/tee/`): NestJS running inside Phala TEE (Intel TDX). Private keys derived on-demand from DStack — never stored in any database. Same agentId always produces the same key, but the key only exists in enclave memory during signing. PostgreSQL for persistence. TEE attestation proves the server runs the published code. Even the operator cannot extract keys. This is the production deployment for mainnet.
 
 ### Agent SDK (`@wraith-horizen/agent-sdk`) — planned
 
@@ -164,7 +165,7 @@ Any dApp on Horizen embeds private payment agents without building stealth addre
 
 **Next:**
 - [ ] Agent SDK extraction (`@wraith-horizen/agent-sdk`)
-- [ ] TEE deployment for production key security
+- [x] TEE deployment (Phala TEE + PostgreSQL + NestJS)
 - [ ] On-chain private messaging (ECDH encrypted, sender anonymous)
 - [ ] Multi-chain stealth routing (Horizen + Stellar + more)
 - [ ] FHE-DKSAP (trustless outsourced scanning without sharing viewing key)

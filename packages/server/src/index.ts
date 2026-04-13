@@ -244,11 +244,36 @@ const server = createServer((req, res) => {
     }
   });
 
-  app.get("/agent/:id/export", (req, res) => {
+  app.post("/agent/:id/export", async (req, res) => {
     try {
-      const row = db.prepare("SELECT encrypted_secret FROM agents WHERE id = ?").get(req.params.id) as any;
-      if (!row) { res.status(404).json({ error: "Agent not found" }); return; }
-      const secret = decrypt(row.encrypted_secret);
+      const { signature, message } = req.body;
+      if (!signature || !message) {
+        res.status(400).json({ error: "Signature and message are required to export key." });
+        return;
+      }
+
+      const agentRow = db.prepare("SELECT * FROM agents WHERE id = ?").get(req.params.id) as any;
+      if (!agentRow) { res.status(404).json({ error: "Agent not found" }); return; }
+
+      if (!agentRow.owner_wallet) {
+        res.status(400).json({ error: "Agent has no owner wallet. Cannot verify ownership." });
+        return;
+      }
+
+      // Verify EIP-191 personal_sign signature matches the owner wallet
+      const { verifyMessage } = await import("viem");
+      const isValid = await verifyMessage({
+        address: agentRow.owner_wallet as `0x${string}`,
+        message,
+        signature: signature as `0x${string}`,
+      });
+
+      if (!isValid) {
+        res.status(403).json({ error: "Invalid signature. Must be signed by the agent owner wallet." });
+        return;
+      }
+
+      const secret = decrypt(agentRow.encrypted_secret);
       res.json({ secret });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
