@@ -12,8 +12,7 @@ import {
 import type { HexString } from "@wraith-horizen/sdk";
 import { WRAITH_SENDER_ABI, WRAITH_SENDER_ADDRESS, EXPLORER_URL } from "../config";
 
-const LS_SERVER_URL = "wraith_server_url";
-const DEFAULT_SERVER_URL = "http://localhost:3002";
+const DEFAULT_SERVER_URL = (import.meta.env.VITE_SERVER_URL || "https://98af19e30d6ee5f73c6ea29960a6ebfe95287b97-3000.dstack-pha-prod9.phala.network").replace(/\/+$/, "");
 
 interface AgentPublicInfo {
   name: string;
@@ -33,8 +32,6 @@ export default function Pay() {
   const memo = searchParams.get("memo") || "";
   const [amountInput, setAmountInput] = useState(urlAmount);
   const amount = amountInput;
-
-  const serverUrl = localStorage.getItem(LS_SERVER_URL) || DEFAULT_SERVER_URL;
 
   const [agentInfo, setAgentInfo] = useState<AgentPublicInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +55,7 @@ export default function Pay() {
 
     async function fetchInfo() {
       try {
-        const res = await fetch(`${serverUrl}/agent/info/${name}`);
+        const res = await fetch(`${DEFAULT_SERVER_URL}/agent/info/${name}`);
         if (!res.ok) throw new Error(`Agent "${name}" not found`);
         const data = await res.json();
         if (cancelled) return;
@@ -73,7 +70,7 @@ export default function Pay() {
 
     fetchInfo();
     return () => { cancelled = true; };
-  }, [name, serverUrl]);
+  }, [name]);
 
   function handlePay() {
     if (!isConnected) { openConnectModal?.(); return; }
@@ -106,13 +103,13 @@ export default function Pay() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0e0e0e]">
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest p-4">
         <div className="text-center">
           <img src="/logo.png" alt="Wraith" className="h-14 mx-auto mb-4 opacity-80" />
           <div className="flex items-center justify-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots" style={{ animationDelay: "0s" }} />
-            <span className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots" style={{ animationDelay: "0.2s" }} />
-            <span className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots" style={{ animationDelay: "0.4s" }} />
+            <span className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots" style={{ animationDelay: "0s" }} />
+            <span className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots" style={{ animationDelay: "0.2s" }} />
+            <span className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots" style={{ animationDelay: "0.4s" }} />
           </div>
         </div>
       </div>
@@ -121,15 +118,15 @@ export default function Pay() {
 
   if (!agentInfo) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0e0e0e]">
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest p-4">
         <div className="text-center max-w-md px-6">
           <img src="/logo.png" alt="Wraith" className="h-14 mx-auto mb-4 opacity-80" />
-          <p className="text-[#acabaa] mb-4">{error || "Agent not found"}</p>
+          <p className="text-on-surface-variant mb-4">{error || "Agent not found"}</p>
           <div className="flex gap-3 justify-center">
-            <a href="/agents" className="text-xs text-[#767575] hover:text-[#acabaa] transition-colors">
+            <a href="/agents" className="text-xs text-outline hover:text-on-surface-variant transition-colors">
               Browse agents
             </a>
-            <a href="/" className="text-xs text-[#767575] hover:text-[#acabaa] transition-colors">
+            <a href="/" className="text-xs text-outline hover:text-on-surface-variant transition-colors">
               Go home
             </a>
           </div>
@@ -140,148 +137,128 @@ export default function Pay() {
 
   const pageUrl = window.location.href;
   return (
-    <div className="flex h-screen w-screen flex-col bg-[#0e0e0e]">
-      {/* Header */}
-      <header className="flex-shrink-0 border-b border-[#252626]">
-        <div className="flex items-center px-4 py-3">
-          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <img src="/logo.png" alt="Wraith" className="h-7 opacity-80" />
-          </a>
+    <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest p-4">
+      <div className="w-full max-w-sm">
+        {/* Header */}
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <img src="/logo.png" alt="Wraith" className="h-8 opacity-80" />
+          <span className="font-headline font-black text-on-surface text-lg uppercase tracking-wider">Wraith</span>
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-sm">
-          {/* Agent card */}
-          <div className="bg-[#131313] border border-[#252626]">
-            {/* Card header */}
-            <div className="bg-[#0a0a0a] px-6 py-5 text-center border-b border-[#252626]">
-              <p
-                className="text-2xl font-bold text-[#c6c6c7]"
-                style={{ fontFamily: "Space Grotesk, monospace" }}
-              >
-                {agentInfo.name}.wraith
-              </p>
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <span className="h-2 w-2 bg-green-500" />
-                <span className="text-xs text-[#767575]">Active on Horizen Testnet</span>
-              </div>
-            </div>
-
-            {/* QR Code */}
-            <div className="flex justify-center py-5">
-              <div className="bg-[#0e0e0e] p-4">
-                <QRCodeCanvas
-                  value={pageUrl}
-                  size={180}
-                  bgColor="#0e0e0e"
-                  fgColor="#c6c6c7"
-                  level="H"
-                />
-              </div>
-            </div>
-
-            {/* Payment details */}
-            <div className="px-6 pb-4 space-y-3">
-              {amount && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#767575]">Amount</span>
-                  <span
-                    className="text-sm text-[#c6c6c7] font-bold"
-                    style={{ fontFamily: "Space Grotesk, monospace" }}
-                  >
-                    {amount} ETH
-                  </span>
-                </div>
-              )}
-              {memo && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#767575]">Memo</span>
-                  <span className="text-sm text-[#acabaa]">{memo}</span>
-                </div>
-              )}
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs text-[#767575]">Address</span>
-                <button
-                  onClick={() => handleCopy(agentInfo.address, "address")}
-                  className="text-xs text-[#acabaa] font-mono text-right hover:text-[#c6c6c7] transition-colors"
-                >
-                  {copied === "address" ? "Copied!" : truncateKey(agentInfo.address, 8)}
-                </button>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-xs text-[#767575] whitespace-nowrap">Meta Address</span>
-                <button
-                  onClick={() => handleCopy(agentInfo.metaAddress, "meta")}
-                  className="text-xs text-[#acabaa] font-mono text-right hover:text-[#c6c6c7] transition-colors break-all"
-                >
-                  {copied === "meta" ? "Copied!" : truncateKey(agentInfo.metaAddress, 10)}
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="px-6 pb-6 space-y-2">
-              {txHash && isSuccess ? (
-                <div className="text-center space-y-2 py-2">
-                  <p className="text-[#c6c6c7] font-bold" style={{ fontFamily: "Space Grotesk, monospace" }}>PAID</p>
-                  <a href={`${EXPLORER_URL}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#acabaa] underline hover:text-[#c6c6c7]">
-                    View transaction
-                  </a>
-                </div>
-              ) : (
-                <>
-                  {payStatus && <p className="text-xs text-[#acabaa] text-center mb-2">{payStatus}</p>}
-                  {error && <p className="text-xs text-[#ee7d77] text-center mb-2">{error}</p>}
-
-                  {!urlAmount && (
-                    <div className="mb-3">
-                      <input
-                        type="text"
-                        value={amountInput}
-                        onChange={(e) => setAmountInput(e.target.value)}
-                        placeholder="Amount (ETH)"
-                        className="w-full bg-[#0a0a0a] border border-[#252626] px-4 py-3 text-sm text-[#c6c6c7] placeholder:text-[#484848] outline-none focus:border-[#484848] transition-colors"
-                        style={{ fontFamily: "Space Grotesk, monospace" }}
-                      />
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handlePay}
-                    disabled={isPending || !amount}
-                    className="w-full py-3 bg-[#c6c6c7] text-[#0e0e0e] text-sm font-bold uppercase tracking-wider hover:bg-[#d4d4d5] transition-colors disabled:opacity-30"
-                  >
-                    {isPending ? "Processing..." : !isConnected ? "Connect Wallet & Pay" : amount ? `Pay ${amount} ETH` : "Enter amount"}
-                  </button>
-                </>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleCopy(pageUrl, "link")}
-                  className="flex-1 py-2.5 border border-[#484848] text-[#acabaa] text-xs font-bold uppercase tracking-wider hover:bg-[#1f2020] transition-colors"
-                >
-                  {copied === "link" ? "Copied!" : "Share Link"}
-                </button>
-                <a
-                  href={`${EXPLORER_URL}/address/${agentInfo.address}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-2.5 border border-[#484848] text-[#acabaa] text-center text-xs font-bold uppercase tracking-wider hover:bg-[#1f2020] transition-colors"
-                >
-                  Explorer
-                </a>
-              </div>
+        {/* Agent card */}
+        <div className="bg-surface border border-outline-variant/10">
+          {/* Card header */}
+          <div className="bg-surface-container-low px-6 py-5 text-center border-b border-outline-variant/10">
+            <p className="text-3xl font-headline font-black uppercase text-on-surface">
+              {agentInfo.name}.wraith
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <span className="h-2 w-2 bg-tertiary" />
+              <span className="font-mono text-[10px] text-outline uppercase tracking-wider">Payment Terminal</span>
             </div>
           </div>
 
-          {/* Privacy note */}
-          <p className="text-[10px] text-[#484848] text-center mt-4">
-            Payment goes to a stealth address. Only {agentInfo.name}.wraith can detect it.
-          </p>
+          {/* QR Code */}
+          <div className="flex justify-center py-5">
+            <div className="bg-white p-4">
+              <QRCodeCanvas
+                value={pageUrl}
+                size={180}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="H"
+              />
+            </div>
+          </div>
+
+          {/* Payment details */}
+          <div className="px-6 pb-4 space-y-3">
+            {amount && (
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-outline uppercase tracking-wider">Amount</span>
+                <span className="text-sm text-on-surface font-headline font-bold">
+                  {amount} ETH
+                </span>
+              </div>
+            )}
+            {memo && (
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-outline uppercase tracking-wider">Memo</span>
+                <span className="text-sm text-on-surface-variant">{memo}</span>
+              </div>
+            )}
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-mono text-[10px] text-outline uppercase tracking-wider">Address</span>
+              <button
+                onClick={() => handleCopy(agentInfo.address, "address")}
+                className="text-xs text-on-surface-variant font-mono text-right hover:text-on-surface transition-colors"
+              >
+                {copied === "address" ? "Copied!" : truncateKey(agentInfo.address, 8)}
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-mono text-[10px] text-outline uppercase tracking-wider whitespace-nowrap">Meta Address</span>
+              <button
+                onClick={() => handleCopy(agentInfo.metaAddress, "meta")}
+                className="text-xs text-on-surface-variant font-mono text-right hover:text-on-surface transition-colors break-all"
+              >
+                {copied === "meta" ? "Copied!" : truncateKey(agentInfo.metaAddress, 10)}
+              </button>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="px-6 pb-6 space-y-2">
+            {txHash && isSuccess ? (
+              <div className="text-center space-y-2 py-2">
+                <p className="text-tertiary font-headline font-bold">Payment sent!</p>
+                <a href={`${EXPLORER_URL}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-on-surface-variant underline hover:text-on-surface">
+                  View transaction
+                </a>
+              </div>
+            ) : (
+              <>
+                {payStatus && <p className="text-xs text-on-surface-variant text-center mb-2">{payStatus}</p>}
+                {error && <p className="text-xs text-error text-center mb-2">{error}</p>}
+
+                {!urlAmount && (
+                  <div className="mb-3">
+                    <label className="block font-mono text-[10px] text-outline uppercase tracking-wider mb-1.5">Amount</label>
+                    <input
+                      type="text"
+                      value={amountInput}
+                      onChange={(e) => setAmountInput(e.target.value)}
+                      placeholder="0.00 ETH"
+                      className="w-full bg-surface-container-low px-3 py-2.5 text-sm text-on-surface font-mono placeholder:text-outline-variant outline-none border border-outline-variant/10 focus:border-outline transition-colors"
+                    />
+                  </div>
+                )}
+
+                <button
+                  onClick={handlePay}
+                  disabled={isPending || !amount}
+                  className="w-full py-3 bg-white text-surface text-sm font-bold uppercase tracking-wider hover:neon-glow transition-all disabled:opacity-30"
+                >
+                  {isPending ? "Processing..." : !isConnected ? "Connect Wallet & Pay" : amount ? `Pay ${amount} ETH` : "Enter amount"}
+                </button>
+              </>
+            )}
+            <a
+              href={`${EXPLORER_URL}/address/${agentInfo.address}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-2.5 border border-outline text-on-surface-variant text-center text-xs font-bold uppercase tracking-wider hover:bg-surface-bright transition-colors"
+            >
+              View Profile
+            </a>
+          </div>
         </div>
-      </main>
+
+        {/* Footer note */}
+        <p className="font-mono text-[10px] text-outline-variant text-center mt-4">
+          Payment goes to a stealth address. Only {agentInfo.name}.wraith can detect it.
+        </p>
+      </div>
     </div>
   );
 }

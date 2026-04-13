@@ -34,6 +34,12 @@ const config: Config = {
           "on-error": "#0e0e0e",
           "on-container": "#f4a9a5",
         },
+        tertiary: {
+          DEFAULT: "#22c55e",
+          container: "#1a3a2a",
+          "on-tertiary": "#0e0e0e",
+          "on-container": "#86efac",
+        },
         outline: {
           DEFAULT: "#767575",
           variant: "#444444",
@@ -55,12 +61,13 @@ const config: Config = {
         xl: "0px",
         "2xl": "0px",
         "3xl": "0px",
-        full: "0px",
+        full: "9999px",
       },
       fontFamily: {
         headline: ['"Space Grotesk"', "sans-serif"],
-        label: ['"Space Grotesk"', "sans-serif"],
+        label: ['"Inter"', "sans-serif"],
         body: ['"Inter"', "sans-serif"],
+        mono: ['"JetBrains Mono"', '"Space Grotesk"', "monospace"],
       },
       fontSize: {
         "display-lg": [

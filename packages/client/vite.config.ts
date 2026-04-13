@@ -7,8 +7,6 @@ const emptyModule = path.resolve(__dirname, "src", "empty.ts");
 
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5175 },
-  preview: { port: 5175 },
   resolve: {
     alias: {
       "@react-native-async-storage/async-storage": emptyModule,

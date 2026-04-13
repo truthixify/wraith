@@ -12,7 +12,7 @@ import {
 import type { HexString } from "@wraith-horizen/sdk";
 import { WRAITH_SENDER_ABI, WRAITH_SENDER_ADDRESS, EXPLORER_URL } from "../config";
 
-const SERVER_URL = localStorage.getItem("wraith_server_url") || "http://localhost:3002";
+const SERVER_URL = (import.meta.env.VITE_SERVER_URL || "https://98af19e30d6ee5f73c6ea29960a6ebfe95287b97-3000.dstack-pha-prod9.phala.network").replace(/\/+$/, "");
 
 interface InvoiceData {
   id: string;
@@ -46,7 +46,7 @@ export default function PayInvoice() {
   }, [invoiceId]);
 
   useEffect(() => {
-    if (isSuccess && txHash && invoice) {
+    if (isSuccess && txHash && invoice && invoice.status !== "paid") {
       fetch(`${SERVER_URL}/invoice/${invoiceId}/paid`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,7 +55,7 @@ export default function PayInvoice() {
       setInvoice((prev) => prev ? { ...prev, status: "paid" } : prev);
       setPayStatus("Payment confirmed!");
     }
-  }, [isSuccess, txHash, invoiceId, invoice]);
+  }, [isSuccess, txHash, invoiceId]);
 
   function handlePay() {
     if (!isConnected) { openConnectModal?.(); return; }
@@ -82,13 +82,13 @@ export default function PayInvoice() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0e0e0e]">
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest p-4">
         <div className="text-center">
           <img src="/logo.png" alt="Wraith" className="h-14 mx-auto mb-4 opacity-80" />
           <div className="flex items-center justify-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots" style={{ animationDelay: "0s" }} />
-            <span className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots" style={{ animationDelay: "0.2s" }} />
-            <span className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots" style={{ animationDelay: "0.4s" }} />
+            <span className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots" style={{ animationDelay: "0s" }} />
+            <span className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots" style={{ animationDelay: "0.2s" }} />
+            <span className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots" style={{ animationDelay: "0.4s" }} />
           </div>
         </div>
       </div>
@@ -97,10 +97,10 @@ export default function PayInvoice() {
 
   if (error && !invoice) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0e0e0e]">
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest p-4">
         <div className="text-center">
           <img src="/logo.png" alt="Wraith" className="h-12 mx-auto mb-2 opacity-80" />
-          <p className="text-[#ee7d77] text-sm">{error}</p>
+          <p className="text-error text-sm">{error}</p>
         </div>
       </div>
     );
@@ -113,64 +113,63 @@ export default function PayInvoice() {
   const displayTxHash = txHash || invoice.txHash;
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#0e0e0e] p-4">
+    <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img src="/logo.png" alt="Wraith" className="h-10 mx-auto opacity-80" />
-          <p className="text-xs text-[#767575] mt-1">Private Invoice</p>
+          <p className="font-mono text-xs text-outline mt-1">Private Invoice</p>
         </div>
 
-        <div className="bg-[#131313] border border-[#484848] p-6 space-y-6">
+        <div className="bg-surface border border-outline-variant p-6 space-y-6">
           <div className="text-center">
-            <p className="text-xs text-[#767575] uppercase tracking-widest mb-1">Pay to</p>
-            <p className="text-xl font-bold text-[#c6c6c7]" style={{ fontFamily: "Space Grotesk, monospace" }}>
+            <p className="font-mono text-[10px] text-outline uppercase tracking-widest mb-1">Pay to</p>
+            <p className="font-headline font-black text-2xl text-on-surface">
               {invoice.agentName}.wraith
             </p>
           </div>
 
           <div className="text-center">
-            <p className="text-4xl font-bold text-[#e7e5e4]" style={{ fontFamily: "Space Grotesk, monospace" }}>
-              {invoice.amount} <span className="text-lg text-[#767575]">ETH</span>
+            <p className="text-4xl font-mono text-on-surface">
+              {invoice.amount} <span className="text-lg text-outline">ETH</span>
             </p>
-            {invoice.memo && <p className="text-sm text-[#acabaa] mt-2">"{invoice.memo}"</p>}
+            {invoice.memo && <p className="text-sm text-on-surface-variant mt-2">"{invoice.memo}"</p>}
           </div>
 
           <div className="flex justify-center">
-            <div className="bg-[#0e0e0e] p-4">
+            <div className="bg-surface-container-low p-4">
               <QRCodeCanvas value={pageUrl} size={180} bgColor="#0e0e0e" fgColor="#c6c6c7" level="H" />
             </div>
           </div>
 
           {isPaid ? (
             <div className="text-center space-y-2">
-              <p className="text-[#c6c6c7] font-bold" style={{ fontFamily: "Space Grotesk, monospace" }}>PAID</p>
+              <p className="text-tertiary font-headline font-black uppercase">PAID</p>
               {displayTxHash && (
-                <a href={`${EXPLORER_URL}/tx/${displayTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#acabaa] underline hover:text-[#c6c6c7]">
+                <a href={`${EXPLORER_URL}/tx/${displayTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-on-surface-variant underline hover:text-on-surface">
                   View transaction
                 </a>
               )}
             </div>
           ) : (
             <div className="space-y-3">
-              {payStatus && <p className="text-xs text-[#acabaa] text-center">{payStatus}</p>}
-              {error && <p className="text-xs text-[#ee7d77] text-center">{error}</p>}
+              {payStatus && <p className="text-xs text-on-surface-variant text-center">{payStatus}</p>}
+              {error && <p className="text-xs text-error text-center">{error}</p>}
               <button
                 onClick={handlePay}
                 disabled={isPending}
-                className="w-full py-3 bg-[#c6c6c7] text-[#3f4041] font-bold uppercase tracking-widest text-sm hover:brightness-110 transition-all disabled:opacity-30"
-                style={{ fontFamily: "Space Grotesk, monospace" }}
+                className="w-full py-4 bg-white text-surface font-headline font-bold uppercase tracking-[0.2em] text-sm hover:brightness-110 transition-all disabled:opacity-30"
               >
                 {isPending ? "Processing..." : isConnected ? "Pay Now" : "Connect Wallet & Pay"}
               </button>
             </div>
           )}
 
-          <div className="border-t border-[#484848] pt-3">
-            <p className="text-[10px] text-[#484848] text-center break-all">Invoice: {invoice.id}</p>
+          <div className="border-t border-outline-variant/30 pt-3">
+            <p className="font-mono text-[9px] text-outline-variant text-center break-all">Invoice: {invoice.id}</p>
           </div>
         </div>
 
-        <p className="text-[10px] text-[#484848] text-center mt-4">
+        <p className="font-mono text-[10px] text-outline-variant text-center mt-4">
           Payment goes to a stealth address. Only {invoice.agentName}.wraith can detect it.
         </p>
       </div>

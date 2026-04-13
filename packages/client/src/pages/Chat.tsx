@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -45,7 +45,7 @@ interface Conversation {
 const LS_SERVER_URL = "wraith_server_url";
 const LS_AGENT_ID = "wraith_agent_id";
 const LS_WALLET = "wraith_wallet";
-const DEFAULT_SERVER_URL = "http://localhost:3002";
+const DEFAULT_SERVER_URL = (import.meta.env.VITE_SERVER_URL || "https://98af19e30d6ee5f73c6ea29960a6ebfe95287b97-3000.dstack-pha-prod9.phala.network").replace(/\/+$/, "");
 
 interface CommandParam {
   key: string;
@@ -204,11 +204,10 @@ function truncateKey(key: string, len = 4): string {
 
 export default function Chat() {
   const { address: wagmiAddress, isConnected: walletIsConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   /* --- state ------------------------------------------------------- */
-  const [serverUrl, setServerUrl] = useState<string>(
-    () => localStorage.getItem(LS_SERVER_URL) || DEFAULT_SERVER_URL
-  );
+  const [serverUrl] = useState<string>(DEFAULT_SERVER_URL);
   const [agentId, setAgentId] = useState<string | null>(
     () => localStorage.getItem(LS_AGENT_ID)
   );
@@ -231,7 +230,9 @@ export default function Chat() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [agentBalance, setAgentBalance] = useState<string>("0");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportedKey, setExportedKey] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
@@ -240,9 +241,10 @@ export default function Chat() {
   const [wizardStep, setWizardStep] = useState(0);
   const [wizardValues, setWizardValues] = useState<Record<string, string>>({});
 
-  const [notifications, setNotifications] = useState<Array<{ id: number; type: string; title: string; body: string; read: number; created_at: number }>>([]);
+  const [notifications, setNotifications] = useState<Array<{ id: number; type: string; title: string; body: string; read: boolean | number; createdAt?: string; created_at?: number }>>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [selectedNotif, setSelectedNotif] = useState<{ id: number; type: string; title: string; body: string; createdAt?: string; created_at?: number } | null>(null);
 
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
@@ -284,11 +286,6 @@ export default function Chat() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  /* --- persist server url ------------------------------------------ */
-  useEffect(() => {
-    localStorage.setItem(LS_SERVER_URL, serverUrl);
-  }, [serverUrl]);
-
   /* --- persist agent id -------------------------------------------- */
   useEffect(() => {
     if (agentId) {
@@ -306,6 +303,30 @@ export default function Chat() {
       localStorage.removeItem(LS_WALLET);
     }
   }, [walletAddress]);
+
+  /* --- fetch agent status on connect ------------------------------- */
+  async function fetchAgentStatus(id: string, info: AgentInfo, cancelled: boolean) {
+    try {
+      const res = await fetch(`${serverUrl}/agent/${id}/status`);
+      if (!res.ok || cancelled) return;
+      const status = await res.json();
+      if (cancelled) return;
+      if (status.balance) setAgentBalance(status.balance);
+      setMessages([
+        {
+          role: "agent",
+          text: status.statusMessage || `**${info.name}.wraith** is online.\n**Balance:** ${status.balance || "0"} ETH`,
+        },
+      ]);
+    } catch {
+      setMessages([
+        {
+          role: "system",
+          text: `${info.name}.wraith connected. Type / for commands.`,
+        },
+      ]);
+    }
+  }
 
   /* --- on mount: check wallet -> check agent ----------------------- */
   useEffect(() => {
@@ -332,12 +353,7 @@ export default function Chat() {
             setAgentInfo(info);
             setAgentId(data.id);
             setIsConnected(true);
-            setMessages([
-              {
-                role: "system",
-                text: `Agent ${info.name}.wraith connected.\nWallet: ${truncateKey(info.address)}\nReady to assist.`,
-              },
-            ]);
+            await fetchAgentStatus(data.id, info, cancelled);
           }
         } catch {
           // Server unreachable
@@ -360,13 +376,7 @@ export default function Chat() {
         };
         setAgentInfo(info);
         setIsConnected(true);
-
-        setMessages([
-          {
-            role: "system",
-            text: `Agent ${info.name}.wraith connected.\nWallet: ${truncateKey(info.address)}\nReady to assist.`,
-          },
-        ]);
+        await fetchAgentStatus(agentId!, info, cancelled);
       } catch {
         setAgentId(null);
         setAgentInfo(null);
@@ -492,15 +502,21 @@ export default function Chat() {
     setCreateError(null);
 
     try {
+      const message = `I am creating a Wraith agent named "${name}.wraith" and I confirm that I own this wallet.`;
+      const signature = await signMessageAsync({ message });
+      if (!signature) {
+        throw new Error("Wallet signature required to create an agent.");
+      }
+
       const res = await fetch(`${serverUrl}/agent/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, ownerWallet: walletAddress }),
+        body: JSON.stringify({ name, ownerWallet: walletAddress, signature, message }),
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Server error" }));
-        throw new Error(err.error || `HTTP ${res.status}`);
+        throw new Error(err.error || err.message || `HTTP ${res.status}`);
       }
 
       const data = await res.json();
@@ -718,15 +734,15 @@ export default function Chat() {
           <img src="/logo.png" alt="Wraith" className="h-14 mx-auto mb-4 opacity-80" />
           <div className="flex items-center justify-center gap-1">
             <span
-              className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots"
+              className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots"
               style={{ animationDelay: "0s" }}
             />
             <span
-              className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots"
+              className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots"
               style={{ animationDelay: "0.2s" }}
             />
             <span
-              className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots"
+              className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots"
               style={{ animationDelay: "0.4s" }}
             />
           </div>
@@ -738,13 +754,18 @@ export default function Chat() {
   /* --- wallet connect screen --------------------------------------- */
   if (!walletAddress) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-surface">
-        <div className="w-full max-w-md px-6">
-          <div className="text-center mb-10">
-            <img src="/logo.png" alt="Wraith" className="h-16 mx-auto mb-4 opacity-80" />
-            <p className="font-headline text-title-lg text-primary tracking-tight mb-3">AGENT</p>
-            <p className="text-body-lg text-[#acabaa]">
-              Connect your wallet to create or access your private AI agent.
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest">
+        <div className="w-full max-w-[480px] px-6">
+          <div className="mb-12">
+            <div className="flex items-center gap-2 mb-8">
+              <img src="/logo.png" alt="Wraith" className="h-8 opacity-80" />
+              <span className="font-headline text-lg font-bold tracking-widest text-primary">WRAITH</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-headline font-black text-on-surface uppercase tracking-tighter leading-[0.95] mb-4">
+              Connect<br /><span className="text-primary">Your Wallet</span>
+            </h1>
+            <p className="text-on-surface-variant leading-relaxed">
+              Sign in with your EVM wallet to create or access your private AI agent.
             </p>
           </div>
 
@@ -754,13 +775,17 @@ export default function Chat() {
               return (
                 <button
                   onClick={openConnectModal}
-                  className="w-full bg-primary text-primary-on-primary py-3 px-6 font-label text-label-lg uppercase tracking-wider transition-colors hover:bg-[#d4d4d5]"
+                  className="w-full bg-white text-surface py-5 px-6 font-headline font-bold text-lg uppercase tracking-[0.2em] transition-all hover:neon-glow"
                 >
                   Connect Wallet
                 </button>
               );
             }}
           </ConnectButton.Custom>
+
+          <p className="text-[10px] text-outline-variant mt-6 text-center font-mono">
+            SECURED BY PHALA TEE — KEYS NEVER STORED
+          </p>
         </div>
       </div>
     );
@@ -769,23 +794,27 @@ export default function Chat() {
   /* --- creation screen --------------------------------------------- */
   if (!agentInfo) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-surface">
-        <div className="w-full max-w-md px-6">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <img src="/logo.png" alt="Wraith" className="h-16 mx-auto mb-4 opacity-80" />
-            <p className="font-headline text-title-lg text-primary tracking-tight mb-3">AGENT</p>
-            <p className="text-body-lg text-[#acabaa]">
-              Create your private AI agent on Horizen
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-container-lowest">
+        <div className="w-full max-w-[480px] px-6">
+          <div className="mb-12">
+            <div className="flex items-center gap-2 mb-8">
+              <img src="/logo.png" alt="Wraith" className="h-8 opacity-80" />
+              <span className="font-headline text-lg font-bold tracking-widest text-primary">WRAITH</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-headline font-black text-on-surface uppercase tracking-tighter leading-[0.95] mb-4">
+              Create<br /><span className="text-primary">Your Agent</span>
+            </h1>
+            <p className="text-on-surface-variant leading-relaxed">
+              Your agent gets its own wallet, stealth identity, and .wraith name.
             </p>
-            <p className="text-body-sm text-[#767575] mt-2">
-              Wallet: {truncateKey(walletAddress, 6)}
+            <p className="text-sm text-outline mt-3 font-mono">
+              WALLET: {truncateKey(walletAddress, 6)}
             </p>
           </div>
 
-          {/* Name input */}
           <div className="mb-6">
-            <div className="flex items-center border border-outline-variant bg-surface-container-lowest">
+            <div className="flex items-center bg-surface-container-low border-b-2 border-outline-variant focus-within:border-white transition-colors">
+              <span className="pl-4 font-mono text-sm text-outline select-none">$</span>
               <input
                 type="text"
                 value={nameInput}
@@ -796,28 +825,26 @@ export default function Chat() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleCreate();
                 }}
-                placeholder="Choose a name"
-                className="flex-1 bg-transparent px-4 py-3 text-body-lg text-on-surface placeholder:text-[#767575] outline-none"
+                placeholder="choose a name"
+                className="flex-1 bg-transparent px-3 py-4 text-lg text-on-surface placeholder:text-outline-variant outline-none font-mono"
                 disabled={isCreating}
               />
-              <span className="pr-4 text-body-lg text-[#767575] select-none">
+              <span className="pr-4 text-lg text-outline select-none font-mono">
                 .wraith
               </span>
             </div>
           </div>
 
-          {/* Error */}
           {createError && (
-            <div className="mb-4 px-1 text-body-sm text-error animate-fade-in">
+            <div className="mb-6 px-4 py-3 bg-error-container/20 border-l-2 border-error text-sm text-error animate-fade-in">
               {createError}
             </div>
           )}
 
-          {/* Create button */}
           <button
             onClick={handleCreate}
             disabled={isCreating || !nameInput.trim()}
-            className="w-full bg-primary text-primary-on-primary py-3 px-6 font-label text-label-lg uppercase tracking-wider transition-colors hover:bg-[#d4d4d5] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full bg-white text-surface py-5 px-6 font-headline font-bold text-lg uppercase tracking-[0.2em] transition-all hover:neon-glow disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isCreating ? (
               <span className="flex items-center justify-center gap-2">
@@ -830,34 +857,32 @@ export default function Chat() {
             )}
           </button>
 
-          {/* Info */}
-          <div className="mt-8 space-y-2 text-body-sm text-[#767575]">
-            <p className="text-[#acabaa] mb-3">This will:</p>
+          <div className="mt-8 space-y-2 text-body-sm text-outline">
+            <p className="text-on-surface-variant mb-3">This will:</p>
             <ul className="space-y-1.5">
               <li className="flex items-start gap-2">
-                <span className="text-[#acabaa] mt-0.5">&#8226;</span>
+                <span className="text-on-surface-variant mt-0.5">&#8226;</span>
                 <span>Generate an EVM wallet</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-[#acabaa] mt-0.5">&#8226;</span>
+                <span className="text-on-surface-variant mt-0.5">&#8226;</span>
                 <span>Derive stealth keys</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-[#acabaa] mt-0.5">&#8226;</span>
+                <span className="text-on-surface-variant mt-0.5">&#8226;</span>
                 <span>Register your .wraith name</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-[#acabaa] mt-0.5">&#8226;</span>
+                <span className="text-on-surface-variant mt-0.5">&#8226;</span>
                 <span>Fund with testnet ETH</span>
               </li>
             </ul>
           </div>
 
-          {/* Disconnect wallet */}
           <div className="mt-10 border-t border-outline-variant pt-4 flex justify-end">
             <button
               onClick={handleDisconnect}
-              className="flex items-center gap-2 text-label-sm text-[#767575] hover:text-error transition-colors"
+              className="flex items-center gap-2 text-label-sm text-outline hover:text-error transition-colors"
             >
               <DisconnectIcon />
               <span>Disconnect</span>
@@ -870,34 +895,46 @@ export default function Chat() {
 
   /* --- chat screen ------------------------------------------------- */
   return (
-    <div className="flex h-screen w-screen bg-surface">
-      {/* Sidebar */}
+    <div className="flex h-screen w-screen bg-surface-container-lowest">
       {sidebarOpen && (
-        <aside className="w-64 flex-shrink-0 border-r border-outline-variant bg-[#0a0a0a] flex flex-col">
-          {/* New chat button */}
-          <div className="p-3 border-b border-outline-variant">
+        <div
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {sidebarOpen && (
+        <aside className="fixed z-40 top-0 left-0 h-full w-[260px] border-r border-outline-variant/10 bg-surface flex flex-col lg:relative lg:z-auto">
+          <div className="px-6 pt-6 pb-4">
+            <div className="flex items-center gap-3 mb-1">
+              <img src="/logo.png" alt="Wraith" className="h-6 opacity-80" />
+              <span className="font-headline text-lg font-black tracking-widest text-primary">WRAITH</span>
+            </div>
+            <span className="font-mono text-[10px] text-outline tracking-[0.05em]">Private Agents</span>
+          </div>
+
+          <div className="px-4 pb-3">
             <button
-              onClick={handleNewChat}
-              className="w-full py-2 px-3 text-label-sm text-primary border border-outline-variant hover:bg-[#1f2020] transition-colors text-left"
+              onClick={() => { handleNewChat(); if (window.innerWidth < 1024) setSidebarOpen(false); }}
+              className="w-full py-3 px-4 font-headline text-xs uppercase tracking-widest text-on-surface border border-outline hover:border-white hover:bg-surface-bright transition-all text-left"
             >
-              + New Chat
+              + NEW CHAT
             </button>
           </div>
 
-          {/* Conversation list */}
           <div className="flex-1 overflow-y-auto">
             {conversations.map((conv) => (
               <div
                 key={conv.id}
-                className={`group flex items-center border-b border-[#1a1a1a] transition-colors ${
+                className={`group flex items-center transition-all ${
                   conv.id === activeConvId
-                    ? "bg-[#1f2020] text-on-surface"
-                    : "text-[#767575] hover:bg-[#131313] hover:text-[#acabaa]"
+                    ? "bg-surface-bright text-white border-l-2 border-white"
+                    : "text-outline hover:bg-surface-container-high hover:text-on-surface-variant border-l-2 border-transparent"
                 }`}
               >
                 <button
-                  onClick={() => loadConversation(conv.id)}
-                  className="flex-1 text-left px-3 py-2.5 text-body-sm truncate"
+                  onClick={() => { loadConversation(conv.id); if (window.innerWidth < 1024) setSidebarOpen(false); }}
+                  className="flex-1 text-left px-4 py-3 text-sm truncate"
                 >
                   {conv.title}
                 </button>
@@ -906,52 +943,56 @@ export default function Chat() {
                     e.stopPropagation();
                     handleDeleteConv(conv.id);
                   }}
-                  className="hidden group-hover:block flex-shrink-0 px-2 py-1 mr-1 text-[#767575] hover:text-red-400 transition-colors"
+                  className="hidden group-hover:flex flex-shrink-0 px-2 py-1 mr-2 text-outline hover:text-error transition-colors"
                   title="Delete conversation"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                    <path d="M3.05 2.05a1 1 0 011.41 0L6 3.59l1.54-1.54a1 1 0 111.41 1.41L7.41 5l1.54 1.54a1 1 0 01-1.41 1.41L6 6.41 4.46 7.95a1 1 0 01-1.41-1.41L4.59 5 3.05 3.46a1 1 0 010-1.41z"/>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14" />
                   </svg>
                 </button>
               </div>
             ))}
             {conversations.length === 0 && (
-              <p className="px-3 py-4 text-xs text-[#484848]">No conversations yet</p>
+              <p className="px-3 py-4 text-xs text-outline-variant">No conversations yet</p>
             )}
           </div>
 
-          {/* Sidebar bottom links */}
-          <div className="flex-shrink-0 border-t border-outline-variant p-3 space-y-1">
+          <div className="flex-shrink-0 border-t border-outline-variant/10 px-2 py-3 flex items-center justify-around">
             <a
               href="/agents"
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#767575] hover:text-[#acabaa] hover:bg-[#131313] transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1 px-3 py-2 text-outline hover:text-on-surface transition-colors"
+              title="Browse Agents"
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                <path d="M7 7a3 3 0 100-6 3 3 0 000 6zm-5 7a5 5 0 0110 0H2z"/>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="9" cy="7" r="4" /><path d="M1 21v-2a4 4 0 014-4h8a4 4 0 014 4v2" /><path d="M16 3.13a4 4 0 010 7.75" /><path d="M21 21v-2a4 4 0 00-3-3.87" />
               </svg>
-              Browse Agents
+              <span className="text-[9px] font-mono uppercase">Explore</span>
             </a>
             {agentInfo && (
               <a
                 href={`/agent/${agentInfo.name}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#767575] hover:text-[#acabaa] hover:bg-[#131313] transition-colors"
+                className="flex flex-col items-center gap-1 px-3 py-2 text-outline hover:text-on-surface transition-colors"
+                title="My Profile"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                  <path d="M3 1h8a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V3a2 2 0 012-2zm1 3v1h6V4H4zm0 3v1h6V7H4zm0 3v1h4v-1H4z"/>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
                 </svg>
-                My Profile Card
+                <span className="text-[9px] font-mono uppercase">Profile</span>
               </a>
             )}
             <button
               onClick={() => { setSettingsOpen(true); setExportedKey(null); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#767575] hover:text-[#acabaa] hover:bg-[#131313] transition-colors"
+              className="flex flex-col items-center gap-1 px-3 py-2 text-outline hover:text-on-surface transition-colors"
+              title="Settings"
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                <path d="M7 9a2 2 0 100-4 2 2 0 000 4zm5.64-1.8l-.96-.56a4.5 4.5 0 000-1.28l.96-.56a.5.5 0 00.18-.68l-1-1.73a.5.5 0 00-.68-.18l-.96.56a4.5 4.5 0 00-1.1-.64V1.5a.5.5 0 00-.5-.5h-2a.5.5 0 00-.5.5v1.13a4.5 4.5 0 00-1.1.64l-.96-.56a.5.5 0 00-.68.18l-1 1.73a.5.5 0 00.18.68l.96.56a4.5 4.5 0 000 1.28l-.96.56a.5.5 0 00-.18.68l1 1.73a.5.5 0 00.68.18l.96-.56c.33.27.7.49 1.1.64v1.13a.5.5 0 00.5.5h2a.5.5 0 00.5-.5v-1.13a4.5 4.5 0 001.1-.64l.96.56a.5.5 0 00.68-.18l1-1.73a.5.5 0 00-.18-.68z"/>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z" /><circle cx="12" cy="12" r="3" />
               </svg>
-              Settings
+              <span className="text-[9px] font-mono uppercase">Settings</span>
             </button>
           </div>
         </aside>
@@ -964,22 +1005,22 @@ export default function Chat() {
           onClick={() => setSettingsOpen(false)}
         >
           <div
-            className="bg-[#131313] border border-outline-variant w-full max-w-md mx-4 p-6 space-y-5"
+            className="bg-surface-container border border-outline-variant/30 w-full max-w-md mx-4 p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
               <h2 className="font-headline text-lg font-bold text-primary uppercase tracking-tight">Settings</h2>
               <button
                 onClick={() => setSettingsOpen(false)}
-                className="text-[#767575] hover:text-on-surface text-sm"
+                className="text-outline hover:text-on-surface text-sm"
               >
                 ✕
               </button>
             </div>
 
             <div>
-              <h3 className="text-[10px] font-headline uppercase tracking-widest text-[#acabaa] mb-2">Agent Details</h3>
-              <div className="space-y-1.5 text-xs text-[#767575]">
+              <h3 className="text-[10px] font-headline uppercase tracking-widest text-on-surface-variant mb-2">Agent Details</h3>
+              <div className="space-y-1.5 text-xs text-outline font-mono">
                 <p>Name: <span className="text-on-surface">{agentInfo?.name}.wraith</span></p>
                 <p>Address: <span className="text-on-surface font-mono text-[10px] break-all">{agentInfo?.address}</span></p>
                 <p>Meta-Address: <span className="text-on-surface font-mono text-[10px] break-all">{agentInfo?.metaAddress?.slice(0, 30)}...</span></p>
@@ -989,33 +1030,40 @@ export default function Chat() {
             </div>
 
             <div className="border-t border-outline-variant pt-4">
-              <h3 className="text-[10px] font-headline uppercase tracking-widest text-[#acabaa] mb-2">Export Private Key</h3>
-              <p className="text-[10px] text-[#484848] mb-3">Back up your agent's wallet. Keep this secret — anyone with this key controls the wallet.</p>
+              <h3 className="text-[10px] font-headline uppercase tracking-widest text-on-surface-variant mb-2">Export Secret Key</h3>
+              <p className="text-[10px] text-outline-variant mb-3">Back up your agent's wallet. Keep this secret — anyone with this key controls the wallet.</p>
               {!exportedKey ? (
                 <button
                   onClick={async () => {
                     setExportLoading(true);
                     try {
-                      const res = await fetch(`${serverUrl}/agent/${agentId}/export`);
+                      const exportMsg = `Export private key for agent ${agentId}`;
+                      const sig = await signMessageAsync({ message: exportMsg });
+                      const res = await fetch(`${serverUrl}/agent/${agentId}/export`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ signature: sig, message: exportMsg }),
+                      });
                       const data = await res.json();
                       if (data.secret) setExportedKey(data.secret);
+                      else if (data.message) setCreateError(data.message);
                     } catch {}
                     setExportLoading(false);
                   }}
                   disabled={exportLoading}
-                  className="text-xs py-2 px-4 border border-outline-variant text-[#acabaa] hover:text-on-surface hover:bg-[#1f2020] transition-colors disabled:opacity-30"
+                  className="text-xs py-2 px-4 border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-bright transition-colors disabled:opacity-30"
                 >
-                  {exportLoading ? "..." : "Reveal Private Key"}
+                  {exportLoading ? "..." : "Reveal Secret Key"}
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <div className="bg-[#0a0a0a] border border-error/20 p-3">
+                  <div className="bg-surface-container-lowest border border-error/20 p-3 font-mono">
                     <p className="text-[9px] uppercase tracking-widest text-error mb-1.5 font-headline font-bold">Sensitive — do not share</p>
                     <code className="text-[10px] text-on-surface break-all font-mono leading-relaxed">{exportedKey}</code>
                   </div>
                   <button
                     onClick={() => navigator.clipboard.writeText(exportedKey)}
-                    className="text-[10px] text-[#767575] hover:text-on-surface transition-colors"
+                    className="text-[10px] text-outline hover:text-on-surface transition-colors"
                   >
                     Copy to clipboard
                   </button>
@@ -1038,13 +1086,12 @@ export default function Chat() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="flex-shrink-0 border-b border-outline-variant">
-          <div className="flex items-center justify-between px-4 py-3">
-            {/* Left: Toggle + Logo */}
-            <div className="flex items-center gap-3">
+        <header className="flex-shrink-0 h-14 bg-surface-container-lowest border-b border-outline-variant/10">
+          <div className="flex items-center justify-between px-6 h-full">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-1 text-[#767575] hover:text-[#acabaa] transition-colors mr-2"
+                className="p-1 text-outline hover:text-on-surface transition-colors"
                 title="Toggle sidebar"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1053,24 +1100,18 @@ export default function Chat() {
                   <rect x="1" y="11.5" width="14" height="1.5" />
                 </svg>
               </button>
-              <img src="/logo.png" alt="Wraith" className="h-7 opacity-80" />
-            </div>
-
-            {/* Right: Agent name + wallet + status */}
-            <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <span
-                  className={`inline-block h-2 w-2 ${
-                    isConnected ? "bg-green-500" : "bg-[#767575]"
-                  }`}
-                />
-                <span className="font-label text-label-lg text-[#acabaa]">
+                <span className={`w-2 h-2 ${isConnected ? "bg-tertiary animate-pulse" : "bg-outline"}`} />
+                <span className="font-headline text-sm font-bold text-on-surface tracking-wide">
                   {agentInfo.name}.wraith
                 </span>
-                <span className="text-label-sm text-[#767575]">
-                  ({truncateKey(walletAddress, 4)})
-                </span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-outline hidden md:block">
+                {truncateKey(walletAddress, 4)}
+              </span>
 
               {/* Notifications */}
               <div className="relative">
@@ -1079,7 +1120,7 @@ export default function Chat() {
                     setNotifOpen(!notifOpen);
                     if (!notifOpen && unreadCount > 0) markNotifsRead();
                   }}
-                  className="p-1 text-[#767575] hover:text-[#acabaa] transition-colors relative"
+                  className="p-1 text-outline hover:text-on-surface-variant transition-colors relative"
                   title="Notifications"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1094,56 +1135,72 @@ export default function Chat() {
 
                 {/* Notification dropdown */}
                 {notifOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-[#131313] border border-[#252626] shadow-xl z-50 max-h-80 overflow-y-auto">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-[#252626]">
-                      <span className="text-xs text-[#acabaa] font-bold uppercase tracking-wider">Notifications</span>
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-surface-container border border-outline-variant/30 shadow-xl z-50 max-h-80 overflow-y-auto">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant/30">
+                      <span className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Notifications</span>
                       {unreadCount > 0 && (
                         <button
                           onClick={() => markNotifsRead()}
-                          className="text-[10px] text-[#767575] hover:text-[#acabaa]"
+                          className="text-[10px] text-outline hover:text-on-surface-variant"
                         >
                           Mark all as read
                         </button>
                       )}
                     </div>
                     {notifications.length === 0 ? (
-                      <p className="px-3 py-6 text-xs text-[#484848] text-center">No notifications yet</p>
+                      <p className="px-3 py-6 text-xs text-outline-variant text-center">No notifications yet</p>
                     ) : (
                       notifications.map((n) => (
-                        <div
+                        <button
                           key={n.id}
-                          className={`px-3 py-2.5 border-b border-[#1a1a1a] ${
+                          onClick={() => {
+                            setSelectedNotif(n);
+                            setNotifOpen(false);
+                            if (!n.read) {
+                              setNotifications((prev) => prev.map((p) => p.id === n.id ? { ...p, read: 1 } : p));
+                              setUnreadCount((c) => Math.max(0, c - 1));
+                              fetch(`${serverUrl}/agent/${agentId}/notifications/read`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({}),
+                              }).catch(() => {});
+                            }
+                          }}
+                          className={`w-full text-left px-3 py-2.5 border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors ${
                             n.read ? "opacity-60" : ""
                           }`}
                         >
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className={`h-1.5 w-1.5 flex-shrink-0 ${
-                              n.type === "invoice_paid" ? "bg-green-500" :
+                              n.type === "invoice_paid" ? "bg-tertiary" :
                               n.type === "payment_sent" ? "bg-blue-400" :
                               n.type === "payment_received" ? "bg-green-400" :
                               n.type === "withdrawal" ? "bg-yellow-400" :
-                              "bg-[#767575]"
+                              n.type === "privacy_alert" ? "bg-red-400" :
+                              n.type === "scheduled_payment" ? "bg-purple-400" :
+                              "bg-outline"
                             }`} />
-                            <span className="text-xs font-bold text-[#acabaa]">{n.title}</span>
+                            <span className="text-xs font-bold text-on-surface-variant">{n.title}</span>
                           </div>
-                          <p className="text-[11px] text-[#767575] ml-3.5">{n.body}</p>
-                          <p className="text-[9px] text-[#484848] ml-3.5 mt-1">
-                            {new Date(n.created_at * 1000).toLocaleString()}
+                          <p className="text-[11px] text-outline ml-3.5 truncate">{n.body}</p>
+                          <p className="text-[9px] text-outline-variant ml-3.5 mt-1">
+                            {new Date(n.createdAt || (n.created_at ? n.created_at * 1000 : 0)).toLocaleString()}
                           </p>
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Disconnect */}
               <button
-                onClick={handleDisconnect}
-                className="p-1 text-[#767575] hover:text-error transition-colors"
-                title="Disconnect agent"
+                onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+                className="p-1 text-outline hover:text-on-surface transition-colors hidden xl:block"
+                title="Agent details"
               >
-                <DisconnectIcon />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="0" /><path d="M15 3v18" />
+                </svg>
               </button>
             </div>
           </div>
@@ -1151,7 +1208,7 @@ export default function Chat() {
         </header>
 
         {/* Messages */}
-        <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <main className="flex-1 overflow-y-auto px-8 py-8 space-y-8">
           {messages.map((msg, i) => (
             <MessageBubble key={i} message={msg} />
           ))}
@@ -1159,18 +1216,18 @@ export default function Chat() {
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex items-start gap-3 animate-fade-in">
-              <div className="bg-[#131313] border border-outline-variant px-4 py-3">
+              <div className="bg-surface-container border border-outline-variant/30 px-4 py-3">
                 <div className="flex items-center gap-1">
                   <span
-                    className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots"
+                    className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots"
                     style={{ animationDelay: "0s" }}
                   />
                   <span
-                    className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots"
+                    className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots"
                     style={{ animationDelay: "0.2s" }}
                   />
                   <span
-                    className="inline-block h-1.5 w-1.5 bg-[#acabaa] animate-pulse-dots"
+                    className="inline-block h-1.5 w-1.5 bg-on-surface-variant animate-pulse-dots"
                     style={{ animationDelay: "0.4s" }}
                   />
                 </div>
@@ -1182,18 +1239,18 @@ export default function Chat() {
         </main>
 
         {/* Input bar */}
-        <footer className="flex-shrink-0 border-t border-outline-variant bg-surface-container-lowest relative">
+        <footer className="flex-shrink-0 bg-surface relative">
           {/* Slash command menu */}
           {showSlashMenu && filteredCommands.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 border-t border-outline-variant bg-[#191a1a] max-h-64 overflow-y-auto" id="slash-menu">
+            <div className="absolute bottom-full left-0 right-0 bg-surface-container-high border border-outline-variant/30 max-h-64 overflow-y-auto shadow-2xl" id="slash-menu">
               {filteredCommands.map((cmd, i) => (
                 <button
                   key={cmd.command}
                   ref={(el) => { if (i === slashIndex && el) el.scrollIntoView({ block: "nearest" }); }}
-                  className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
+                  className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-all ${
                     i === slashIndex
-                      ? "bg-[#252626]"
-                      : "hover:bg-[#1f2020]"
+                      ? "bg-surface-bright border-l-2 border-primary"
+                      : "hover:bg-surface-bright border-l-2 border-transparent"
                   }`}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -1201,8 +1258,8 @@ export default function Chat() {
                     inputRef.current?.focus();
                   }}
                 >
-                  <span className="font-headline text-sm text-primary">{cmd.command}</span>
-                  <span className="text-xs text-[#acabaa]">{cmd.description}</span>
+                  <span className="font-mono text-sm text-primary">{cmd.command}</span>
+                  <span className="text-xs text-outline">{cmd.description}</span>
                 </button>
               ))}
             </div>
@@ -1210,12 +1267,12 @@ export default function Chat() {
 
           {/* Wizard progress bar */}
           {activeCommand && (
-            <div className="border-b border-outline-variant bg-[#191a1a]">
+            <div className="border-b border-outline-variant bg-surface-container-low">
               <div className="flex items-center gap-2 px-4 py-2">
                 <span className="text-xs font-headline text-primary uppercase tracking-widest">
                   {activeCommand.command}
                 </span>
-                <span className="text-xs text-[#767575]">{"\u2014"}</span>
+                <span className="text-xs text-outline">{"\u2014"}</span>
                 {activeCommand.params.map((p, i) => (
                   <span
                     key={p.key}
@@ -1224,12 +1281,12 @@ export default function Chat() {
                         ? "text-primary"
                         : i === wizardStep
                         ? "text-on-surface"
-                        : "text-[#484848]"
+                        : "text-outline-variant"
                     }`}
                   >
                     {i < wizardStep ? `${p.label}: ${wizardValues[p.key]}` : p.label}
                     {i < activeCommand.params.length - 1 && (
-                      <span className="text-[#484848] mx-1">{"\u2192"}</span>
+                      <span className="text-outline-variant mx-1">{"\u2192"}</span>
                     )}
                   </span>
                 ))}
@@ -1240,7 +1297,7 @@ export default function Chat() {
                     setWizardValues({});
                     setInput("");
                   }}
-                  className="ml-auto text-xs text-[#767575] hover:text-on-surface"
+                  className="ml-auto text-xs text-outline hover:text-on-surface"
                 >
                   esc
                 </button>
@@ -1267,7 +1324,7 @@ export default function Chat() {
                           handleSendMessage(msg);
                         }
                       }}
-                      className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider border border-[#484848] text-[#acabaa] hover:bg-[#1f2020] hover:text-[#c6c6c7] transition-colors"
+                      className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider border border-outline-variant text-on-surface-variant hover:bg-surface-bright hover:text-on-surface transition-colors"
                     >
                       {opt}
                     </button>
@@ -1277,7 +1334,8 @@ export default function Chat() {
             </div>
           )}
 
-          <div className={`flex items-center gap-2 px-4 py-3${activeCommand?.params[wizardStep]?.options ? " hidden" : ""}`}>
+          <div className={`flex items-center gap-3 px-6 py-4${activeCommand?.params[wizardStep]?.options ? " hidden" : ""}`}>
+            <span className="font-mono text-sm text-outline select-none">$</span>
             <input
               ref={inputRef}
               type="text"
@@ -1331,19 +1389,96 @@ export default function Chat() {
                   : "Message your agent... (type / for commands)"
               }
               disabled={isLoading}
-              className="flex-1 bg-transparent text-body-lg text-on-surface placeholder:text-[#767575] outline-none disabled:opacity-50"
+              className="flex-1 bg-transparent text-sm text-on-surface placeholder:text-outline-variant outline-none disabled:opacity-50 font-body"
               autoFocus
             />
             <button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="bg-primary text-primary-on-primary px-5 py-2 font-label text-label-lg uppercase tracking-wider transition-colors hover:bg-[#d4d4d5] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-white text-surface px-5 py-2 font-label text-label-lg uppercase tracking-wider transition-all hover:neon-glow disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Send
             </button>
           </div>
         </footer>
       </div>
+
+      {/* Right sidebar — Agent details */}
+      {rightSidebarOpen && agentInfo && (
+        <aside className="hidden xl:flex w-[320px] flex-shrink-0 border-l border-outline-variant/10 bg-surface flex-col">
+          <div className="p-6 border-b border-outline-variant/10">
+            <div className="flex items-center justify-between mb-4">
+              <span className="font-headline text-xs uppercase tracking-widest text-outline">Agent Identity</span>
+              <button onClick={() => setRightSidebarOpen(false)} className="text-outline hover:text-on-surface transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-surface-container-high flex items-center justify-center p-2">
+                <img src="/logo.png" alt="W" className="w-full h-full object-contain opacity-80" />
+              </div>
+              <div>
+                <p className="font-headline text-sm font-bold text-on-surface">{agentInfo.name}.wraith</p>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 ${isConnected ? "bg-tertiary" : "bg-outline"}`} />
+                  <span className="font-mono text-[10px] text-outline">{isConnected ? "ONLINE" : "OFFLINE"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Balance */}
+          <div className="px-6 py-4 border-b border-outline-variant/10">
+            <span className="font-mono text-[10px] text-outline uppercase tracking-wider block mb-2">Balance</span>
+            <p className="font-mono text-2xl font-medium text-on-surface">
+              {parseFloat(agentBalance).toLocaleString(undefined, { maximumFractionDigits: 6 })}
+              <span className="text-sm text-outline ml-2">ETH</span>
+            </p>
+          </div>
+
+          <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+            <div>
+              <span className="font-mono text-[10px] text-outline uppercase tracking-wider block mb-1">Address</span>
+              <p className="font-mono text-xs text-on-surface-variant break-all bg-surface-container-low px-3 py-2 hover:bg-surface-bright transition-colors cursor-pointer"
+                onClick={() => navigator.clipboard.writeText(agentInfo.address)}
+                title="Click to copy"
+              >
+                {agentInfo.address}
+              </p>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] text-outline uppercase tracking-wider block mb-1">Meta Address</span>
+              <p className="font-mono text-[10px] text-on-surface-variant break-all bg-surface-container-low px-3 py-2 hover:bg-surface-bright transition-colors cursor-pointer"
+                onClick={() => navigator.clipboard.writeText(agentInfo.metaAddress)}
+                title="Click to copy"
+              >
+                {truncateKey(agentInfo.metaAddress, 16)}
+              </p>
+            </div>
+            <div>
+              <span className="font-mono text-[10px] text-outline uppercase tracking-wider block mb-1">Network</span>
+              <p className="font-mono text-xs text-tertiary">Horizen Testnet</p>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-outline-variant/10 space-y-2">
+            <a
+              href={`/agent/${agentInfo.name}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-2.5 text-center border border-outline text-on-surface-variant text-xs font-mono uppercase tracking-wider hover:bg-surface-bright transition-colors"
+            >
+              View Profile
+            </a>
+            <button
+              onClick={handleDisconnect}
+              className="w-full py-2.5 text-center border border-error/30 text-error text-xs font-mono uppercase tracking-wider hover:bg-error/10 transition-colors"
+            >
+              Disconnect
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Close notif dropdown when clicking outside */}
       {notifOpen && (
@@ -1353,18 +1488,59 @@ export default function Chat() {
         />
       )}
 
+      {/* Notification detail modal */}
+      {selectedNotif && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setSelectedNotif(null)}>
+          <div className="bg-surface-container border border-outline-variant/30 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 flex-shrink-0 ${
+                  selectedNotif.type === "invoice_paid" ? "bg-tertiary" :
+                  selectedNotif.type === "payment_sent" ? "bg-blue-400" :
+                  selectedNotif.type === "payment_received" ? "bg-green-400" :
+                  selectedNotif.type === "withdrawal" ? "bg-yellow-400" :
+                  selectedNotif.type === "privacy_alert" ? "bg-red-400" :
+                  selectedNotif.type === "scheduled_payment" ? "bg-purple-400" :
+                  "bg-outline"
+                }`} />
+                <h3 className="text-sm font-bold text-on-surface">{selectedNotif.title}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedNotif(null)}
+                className="text-outline hover:text-on-surface-variant transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                  <path d="M4.05 3.05a.7.7 0 01.99 0L7 4.94l1.96-1.89a.7.7 0 01.99.99L8.06 6l1.89 1.96a.7.7 0 01-.99.99L7 7.06 5.04 8.95a.7.7 0 01-.99-.99L5.94 6 4.05 4.04a.7.7 0 010-.99z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 pb-4">
+              <div className="text-sm text-on-surface-variant whitespace-pre-wrap break-words prose-wraith">
+                <ReactMarkdown components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{selectedNotif.body}</ReactMarkdown>
+              </div>
+              <p className="text-[10px] text-outline-variant mt-3">
+                {new Date(selectedNotif.createdAt || (selectedNotif.created_at ? selectedNotif.created_at * 1000 : 0)).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-outline-variant mt-1 uppercase tracking-wider">
+                {selectedNotif.type.replace(/_/g, " ")}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Guided Tour Overlay */}
       {showTour && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-[#131313] border border-[#252626] w-full max-w-lg">
+          <div className="bg-surface-container border border-outline-variant/30 w-full max-w-lg">
             {/* Tour header */}
             <div className="flex items-center gap-3 px-6 pt-6 pb-4">
               <img src="/logo.png" alt="Wraith" className="h-10 opacity-80" />
               <div>
-                <h2 className="text-lg font-bold text-[#c6c6c7]" style={{ fontFamily: "Space Grotesk, monospace" }}>
+                <h2 className="text-lg font-headline font-bold text-on-surface">
                   Welcome to Wraith
                 </h2>
-                <p className="text-xs text-[#767575]">Your private AI agent on Horizen</p>
+                <p className="text-xs text-outline">Your private AI agent on Horizen</p>
               </div>
             </div>
 
@@ -1372,21 +1548,21 @@ export default function Chat() {
             <div className="px-6 py-4 min-h-[200px]">
               {tourStep === 0 && (
                 <div className="space-y-4 animate-fade-in">
-                  <p className="text-sm text-[#acabaa]">
-                    Your agent <span className="text-[#c6c6c7] font-bold">{agentInfo?.name}.wraith</span> is ready.
+                  <p className="text-sm text-on-surface-variant">
+                    Your agent <span className="text-on-surface font-bold">{agentInfo?.name}.wraith</span> is ready.
                     It has its own EVM wallet and stealth identity.
                   </p>
-                  <div className="space-y-2 text-xs text-[#767575]">
+                  <div className="space-y-2 text-xs text-outline">
                     <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 bg-green-500 flex-shrink-0" />
+                      <span className="h-1.5 w-1.5 bg-tertiary flex-shrink-0" />
                       <span>Private wallet with stealth payment capabilities</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 bg-green-500 flex-shrink-0" />
+                      <span className="h-1.5 w-1.5 bg-tertiary flex-shrink-0" />
                       <span>On-chain .wraith name for receiving payments</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 bg-green-500 flex-shrink-0" />
+                      <span className="h-1.5 w-1.5 bg-tertiary flex-shrink-0" />
                       <span>AI-powered — just chat naturally</span>
                     </div>
                   </div>
@@ -1395,7 +1571,7 @@ export default function Chat() {
 
               {tourStep === 1 && (
                 <div className="space-y-4 animate-fade-in">
-                  <p className="text-sm text-[#acabaa] font-bold">What your agent can do:</p>
+                  <p className="text-sm text-on-surface-variant font-bold">What your agent can do:</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { icon: "↗", label: "Send payments", desc: "Private stealth payments" },
@@ -1405,10 +1581,10 @@ export default function Chat() {
                       { icon: "🔍", label: "Privacy check", desc: "Analyze your activity" },
                       { icon: "🤝", label: "Pay agents", desc: "Agent-to-agent transfers" },
                     ].map((item) => (
-                      <div key={item.label} className="bg-[#0e0e0e] border border-[#252626] p-3">
+                      <div key={item.label} className="bg-surface-container-lowest border border-outline-variant/10 p-3">
                         <span className="text-lg">{item.icon}</span>
-                        <p className="text-xs text-[#c6c6c7] font-bold mt-1">{item.label}</p>
-                        <p className="text-[10px] text-[#767575]">{item.desc}</p>
+                        <p className="text-xs text-on-surface font-bold mt-1">{item.label}</p>
+                        <p className="text-[10px] text-outline">{item.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -1417,19 +1593,19 @@ export default function Chat() {
 
               {tourStep === 2 && (
                 <div className="space-y-4 animate-fade-in">
-                  <p className="text-sm text-[#acabaa] font-bold">Quick start:</p>
+                  <p className="text-sm text-on-surface-variant font-bold">Quick start:</p>
                   <div className="space-y-3">
-                    <div className="bg-[#0e0e0e] border border-[#252626] p-3">
-                      <p className="text-xs text-[#c6c6c7] font-mono mb-1">1. Fund your agent</p>
-                      <p className="text-[10px] text-[#767575]">Type <span className="text-[#acabaa] font-mono">/fund</span> to get testnet ETH</p>
+                    <div className="bg-surface-container-lowest border border-outline-variant/10 p-3">
+                      <p className="text-xs text-on-surface font-mono mb-1">1. Fund your agent</p>
+                      <p className="text-[10px] text-outline">Type <span className="text-on-surface-variant font-mono">/fund</span> to get testnet ETH</p>
                     </div>
-                    <div className="bg-[#0e0e0e] border border-[#252626] p-3">
-                      <p className="text-xs text-[#c6c6c7] font-mono mb-1">2. Send a payment</p>
-                      <p className="text-[10px] text-[#767575]">Type <span className="text-[#acabaa] font-mono">/send</span> or just say "send 0.1 ETH to alice.wraith"</p>
+                    <div className="bg-surface-container-lowest border border-outline-variant/10 p-3">
+                      <p className="text-xs text-on-surface font-mono mb-1">2. Send a payment</p>
+                      <p className="text-[10px] text-outline">Type <span className="text-on-surface-variant font-mono">/send</span> or just say "send 0.1 ETH to alice.wraith"</p>
                     </div>
-                    <div className="bg-[#0e0e0e] border border-[#252626] p-3">
-                      <p className="text-xs text-[#c6c6c7] font-mono mb-1">3. Use / for all commands</p>
-                      <p className="text-[10px] text-[#767575]">Type <span className="text-[#acabaa] font-mono">/</span> to see every available command</p>
+                    <div className="bg-surface-container-lowest border border-outline-variant/10 p-3">
+                      <p className="text-xs text-on-surface font-mono mb-1">3. Use / for all commands</p>
+                      <p className="text-[10px] text-outline">Type <span className="text-on-surface-variant font-mono">/</span> to see every available command</p>
                     </div>
                   </div>
                 </div>
@@ -1437,13 +1613,13 @@ export default function Chat() {
             </div>
 
             {/* Tour navigation */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-[#252626]">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
               <div className="flex gap-1.5">
                 {[0, 1, 2].map((s) => (
                   <span
                     key={s}
                     className={`h-1.5 w-1.5 transition-colors ${
-                      s === tourStep ? "bg-[#c6c6c7]" : "bg-[#484848]"
+                      s === tourStep ? "bg-primary" : "bg-outline-variant"
                     }`}
                   />
                 ))}
@@ -1451,21 +1627,21 @@ export default function Chat() {
               <div className="flex gap-3">
                 <button
                   onClick={dismissTour}
-                  className="text-xs text-[#767575] hover:text-[#acabaa] transition-colors"
+                  className="text-xs text-outline hover:text-on-surface-variant transition-colors"
                 >
                   Skip
                 </button>
                 {tourStep < 2 ? (
                   <button
                     onClick={() => setTourStep(tourStep + 1)}
-                    className="px-4 py-1.5 bg-[#c6c6c7] text-[#0e0e0e] text-xs font-bold uppercase tracking-wider hover:bg-[#d4d4d5] transition-colors"
+                    className="px-4 py-1.5 bg-white text-surface text-xs font-bold uppercase tracking-wider hover:neon-glow transition-colors"
                   >
                     Next
                   </button>
                 ) : (
                   <button
                     onClick={dismissTour}
-                    className="px-4 py-1.5 bg-[#c6c6c7] text-[#0e0e0e] text-xs font-bold uppercase tracking-wider hover:bg-[#d4d4d5] transition-colors"
+                    className="px-4 py-1.5 bg-white text-surface text-xs font-bold uppercase tracking-wider hover:neon-glow transition-colors"
                   >
                     Get Started
                   </button>
@@ -1488,10 +1664,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   if (role === "system") {
     return (
-      <div className="animate-fade-in">
-        <p className="text-body-sm text-[#acabaa] italic whitespace-pre-line break-words">
-          {text}
-        </p>
+      <div className="animate-fade-in flex items-start gap-3">
+        <div className="w-8 h-8 bg-surface-container-high flex items-center justify-center flex-shrink-0">
+          <span className="font-mono text-[10px] text-outline">sys</span>
+        </div>
+        <div>
+          <span className="font-headline text-[10px] tracking-widest text-outline uppercase block mb-1">System</span>
+          <p className="font-mono text-sm text-outline whitespace-pre-line break-words">{text}</p>
+        </div>
       </div>
     );
   }
@@ -1502,16 +1682,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     const description = lines.slice(1).join("\n");
 
     return (
-      <div className="flex items-start gap-3 animate-fade-in">
-        <div className="max-w-[80%]">
-          <div className="text-body-sm text-[#acabaa]">
-            <span className="mr-1.5">&#9889;</span>
-            <span className="font-bold">{toolName}</span>
+      <div className="animate-fade-in ml-11">
+        <div className="bg-surface-container-low border-l-2 border-tertiary px-4 py-3 max-w-[85%]">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-1.5 h-1.5 bg-tertiary" />
+            <span className="font-mono text-[10px] text-tertiary uppercase tracking-wider">{toolName}</span>
           </div>
           {description && (
-            <p className="text-body-sm text-[#767575] mt-0.5 whitespace-pre-line break-words">
-              {description}
-            </p>
+            <p className="font-mono text-xs text-outline whitespace-pre-line break-words">{description}</p>
           )}
         </div>
       </div>
@@ -1520,11 +1698,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   if (role === "user") {
     return (
-      <div className="flex justify-end animate-fade-in">
-        <div className="max-w-[80%] overflow-hidden bg-[#1f2020] border border-outline-variant px-4 py-3">
-          <p className="text-body-md text-on-surface whitespace-pre-line break-words">
-            {text}
-          </p>
+      <div className="flex flex-row-reverse items-start gap-3 animate-fade-in">
+        <div className="w-8 h-8 bg-on-surface flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#131315" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+        </div>
+        <div className="max-w-[75%]">
+          <p className="text-base text-white font-light whitespace-pre-line break-words">{text}</p>
         </div>
       </div>
     );
@@ -1533,11 +1714,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   // agent
   return (
     <div className="flex items-start gap-3 animate-fade-in">
-      <div className="max-w-[80%] overflow-hidden bg-[#131313] border border-outline-variant px-4 py-3 prose-wraith">
+      <div className="w-8 h-8 bg-surface-container-high flex items-center justify-center flex-shrink-0 p-1.5">
+        <img src="/logo.png" alt="W" className="w-full h-full object-contain opacity-80" />
+      </div>
+      <div className="max-w-[85%] overflow-hidden prose-wraith">
         <ReactMarkdown
           components={{
             a: ({ href, children }) => (
-              <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+              <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary underline">{children}</a>
             ),
           }}
         >{text}</ReactMarkdown>

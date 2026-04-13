@@ -98,9 +98,15 @@
 @layer components {
   .glass {
     background: rgba(14, 14, 14, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(68, 68, 68, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .glass-border {
+    background: rgba(14, 14, 14, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(68, 68, 68, 0.3);
   }
 
   .glass-hover {
@@ -110,6 +116,10 @@
   .glass-hover:hover {
     background: rgba(26, 26, 26, 0.8);
     border-color: rgba(118, 117, 117, 0.5);
+  }
+
+  .neon-glow {
+    box-shadow: 0 0 15px rgba(198, 198, 199, 0.3);
   }
 }
 
@@ -196,6 +206,15 @@
     100% {
       background-position: -200% 0;
     }
+  }
+
+  .animate-blink {
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
   }
 
   /* Scanline effect */
